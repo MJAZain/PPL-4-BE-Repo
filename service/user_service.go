@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"go-gin-auth/config"
 	"go-gin-auth/model"
 
@@ -54,4 +55,52 @@ func DeleteUser(id uint) error {
 		return errors.New("user not found")
 	}
 	return result.Error
+}
+
+func DeactivateUser(id uint) error {
+	var user model.User
+	if err := config.DB.First(&user, id).Error; err != nil {
+		return errors.New("user not found")
+	}
+	user.Active = false
+	return config.DB.Save(&user).Error
+}
+
+func ReactivateUser(id uint) error {
+	var user model.User
+	if err := config.DB.First(&user, id).Error; err != nil {
+		return errors.New("user not found")
+	}
+
+	// Jika user sudah aktif, tidak perlu dilakukan apa-apa
+	if user.Active {
+		return errors.New("user is already active")
+	}
+
+	// Aktifkan kembali user
+	user.Active = true
+	return config.DB.Save(&user).Error
+}
+func SearchUsers(filters map[string]string) ([]model.User, error) {
+	var users []model.User
+	query := config.DB.Model(&model.User{})
+
+	// Print isi filters
+	fmt.Println("Filters received:", filters)
+
+	for key, value := range filters {
+		if value == "" {
+			continue
+		}
+
+		switch key {
+		case "full_name", "email":
+			query = query.Where(fmt.Sprintf("%s ILIKE ?", key), "%"+value+"%")
+		case "role", "status":
+			query = query.Where(fmt.Sprintf("%s = ?", key), value)
+		}
+	}
+
+	err := query.Find(&users).Error
+	return users, err
 }

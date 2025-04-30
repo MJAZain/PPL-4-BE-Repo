@@ -6,6 +6,7 @@ import (
 	"go-gin-auth/service"
 	"go-gin-auth/utils"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,12 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Mengecek jika user tidak aktif
+	if !user.Active {
+		utils.Respond(c, http.StatusUnauthorized, "Login failed", "User is inactive", nil)
+		return
+	}
+
 	match := service.VerifyPassword(input.Password, user.Password)
 
 	if !match {
@@ -54,6 +61,7 @@ func Login(c *gin.Context) {
 	// generate JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
+		"role":    user.Role, // ← penting untuk middleware
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	})
 
@@ -74,8 +82,12 @@ func Logout(c *gin.Context) {
 }
 
 func GetUsers(c *gin.Context) {
-	users, _ := service.GetAllUsers()
-	c.JSON(http.StatusOK, users)
+	users, err := service.GetAllUsers()
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, "Failed to get users", err.Error(), nil)
+		return
+	}
+	utils.Respond(c, http.StatusOK, "Users retrieved successfully", nil, users)
 }
 
 func GetUser(c *gin.Context) {
@@ -155,4 +167,68 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, "User updated successfully", nil, existingUser)
+}
+
+func DeactivateUser(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, "Invalid user ID", nil, err.Error())
+		return
+	}
+
+	// Ambil user terlebih dahulu
+	user, err := service.GetUserByID(uint(id))
+	if err != nil {
+		utils.Respond(c, http.StatusNotFound, "User not found", nil, err.Error())
+		return
+	}
+
+	// Jika sudah nonaktif
+	if !user.Active {
+		utils.Respond(c, http.StatusBadRequest, "User is already deactivated", nil, nil)
+		return
+	}
+	err = service.DeactivateUser(uint(id))
+	if err != nil {
+		utils.Respond(c, http.StatusNotFound, "User not found", nil, err.Error())
+		return
+	}
+
+	// // Tambahkan log aktivitas
+	// service.CreateUserLog(uint(id), "Deactivate User")
+
+	utils.Respond(c, http.StatusOK, "User deactivated successfully", nil, nil)
+}
+func ReactivateUser(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, "Invalid user ID", nil, err.Error())
+		return
+	}
+
+	err = service.ReactivateUser(uint(id))
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, "Failed to reactivate user", nil, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, "User reactivated successfully", nil, nil)
+}
+
+func SearchUsers(c *gin.Context) {
+	filters := map[string]string{
+		"full_name": c.Query("full_name"),
+		"email":     c.Query("email"),
+		"role":      c.Query("role"),
+	}
+
+	users, err := service.SearchUsers(filters)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, "Search failed", nil, err.Error())
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, "Users fetched", nil, users)
 }

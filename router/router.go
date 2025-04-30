@@ -20,12 +20,15 @@ func SetupRouter() *gin.Engine {
 
 		// Protected user routes
 		users := api.Group("/users")
-		users.Use(middleware.AuthMiddleware())
+		users.Use(middleware.AuthAdminMiddleware())
 		{
 			users.GET("/", controller.GetUsers)
 			users.GET("/:id", controller.GetUser)
 			users.PUT("/:id", controller.UpdateUser)
 			users.DELETE("/:id", controller.DeleteUser)
+			users.GET("/search", controller.SearchUsers)
+			users.PATCH("/:id/deactivate", controller.DeactivateUser)
+			users.PATCH("/:id/reactivate", controller.ReactivateUser)
 		}
 	}
 	// // Auth routes
