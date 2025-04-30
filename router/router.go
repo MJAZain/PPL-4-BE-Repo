@@ -29,6 +29,8 @@ func SetupRouter() *gin.Engine {
 			users.GET("/search", controller.SearchUsers)
 			users.PATCH("/:id/deactivate", controller.DeactivateUser)
 			users.PATCH("/:id/reactivate", controller.ReactivateUser)
+			users.PUT("/:id/reset-password", controller.ResetUserPassword)
+
 		}
 	}
 	// // Auth routes

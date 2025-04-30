@@ -28,6 +28,12 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	// Menambahkan aktivitas log setelah user berhasil didaftarkan
+	err := service.LogActivity(user.ID, user.FullName, "Register", "User registered successfully.", c)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, "Failed to log activity", err.Error(), nil)
+		return
+	}
 	utils.Respond(c, http.StatusCreated, "User registered successfully", nil, user)
 }
 
@@ -60,14 +66,22 @@ func Login(c *gin.Context) {
 
 	// generate JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"role":    user.Role, // ← penting untuk middleware
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+		"user_id":   user.ID,
+		"role":      user.Role, // ← penting untuk middleware
+		"full_name": user.FullName,
+		"exp":       time.Now().Add(24 * time.Hour).Unix(),
 	})
 
 	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, "Could not generate token", err.Error(), nil)
+		return
+	}
+
+	// Catat log aktivitas login
+	err = service.LogActivity(user.ID, user.FullName, "Login", "User logged in successfully", c)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, "Failed to log activity", err.Error(), nil)
 		return
 	}
 
@@ -82,6 +96,15 @@ func Logout(c *gin.Context) {
 }
 
 func GetUsers(c *gin.Context) {
+	// // Cek nilai di context
+	// userID, userIDExists := c.Get("user_id")
+	// if !userIDExists {
+	// 	utils.Respond(c, http.StatusUnauthorized, "Unauthorized", "Missing user_id in context", nil)
+	// 	return
+	// }
+
+	// // Cek nilai user_id
+	// fmt.Printf("User ID: %v\n", userID)
 	users, err := service.GetAllUsers()
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, "Failed to get users", err.Error(), nil)
@@ -126,12 +149,30 @@ func DeleteUser(c *gin.Context) {
 		utils.Respond(c, http.StatusBadRequest, "Invalid ID parameter", err.Error(), nil)
 		return
 	}
-
-	err := service.DeleteUser(id)
+	// Dapatkan informasi user yang akan dihapus
+	targetUser, err := service.GetUserByID(id)
 	if err != nil {
 		utils.Respond(c, http.StatusNotFound, "User not found", err.Error(), nil)
 		return
 	}
+
+	err = service.DeleteUser(targetUser.ID)
+	if err != nil {
+		utils.Respond(c, http.StatusNotFound, "User not found", err.Error(), nil)
+		return
+	}
+	// Ambil user yang sedang login dari context (misalnya dari middleware)
+	currentUserIDFloat, _ := c.Get("user_id")
+	currentUserID := uint(currentUserIDFloat.(float64))
+	currentFullName, _ := c.Get("full_name")
+
+	fmt.Printf("Logged-in user: %v (ID %v)\n", currentFullName, currentUserID)
+
+	// Catat log
+	description := fmt.Sprintf("User %s (ID %d) deleted user %s (ID %d)",
+		currentFullName, currentUserID, targetUser.FullName, targetUser.ID)
+
+	_ = service.LogActivity(currentUserID, currentFullName.(string), "DeleteUser", description, c)
 
 	utils.Respond(c, http.StatusOK, "User deleted successfully", nil, nil)
 }
@@ -189,6 +230,20 @@ func DeactivateUser(c *gin.Context) {
 		utils.Respond(c, http.StatusBadRequest, "User is already deactivated", nil, nil)
 		return
 	}
+
+	// Cek jumlah admin aktif lainnya
+	activeAdminsCount, err := service.CountActiveAdmins()
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, "Error", "Failed to count active admins", nil)
+		return
+	}
+
+	// Jika hanya satu admin yang aktif, tolak permintaan
+	if activeAdminsCount <= 1 {
+		utils.Respond(c, http.StatusForbidden, "Forbidden", "You cannot deactivate your account, at least one admin must be active", nil)
+		return
+	}
+
 	err = service.DeactivateUser(uint(id))
 	if err != nil {
 		utils.Respond(c, http.StatusNotFound, "User not found", nil, err.Error())
@@ -231,4 +286,33 @@ func SearchUsers(c *gin.Context) {
 	}
 
 	utils.Respond(c, http.StatusOK, "Users fetched", nil, users)
+}
+func ResetUserPassword(c *gin.Context) {
+	var id uint
+	if _, err := fmt.Sscanf(c.Param("id"), "%d", &id); err != nil {
+		utils.Respond(c, http.StatusBadRequest, "Invalid ID parameter", err.Error(), nil)
+		return
+	}
+
+	var body struct {
+		NewPassword string `json:"new_password"`
+	}
+
+	if err := c.ShouldBindJSON(&body); err != nil {
+		utils.Respond(c, http.StatusBadRequest, "Invalid request body", err.Error(), nil)
+		return
+	}
+
+	if body.NewPassword == "" {
+		utils.Respond(c, http.StatusBadRequest, "Password is required", "new_password is empty", nil)
+		return
+	}
+
+	err := service.UpdateUserPassword(id, body.NewPassword)
+	if err != nil {
+		utils.Respond(c, http.StatusBadRequest, "Failed to update password", err.Error(), nil)
+		return
+	}
+
+	utils.Respond(c, http.StatusOK, "Password updated successfully", nil, nil)
 }

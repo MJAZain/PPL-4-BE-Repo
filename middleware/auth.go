@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"encoding/json"
+	"fmt"
 	"go-gin-auth/utils"
 	"net/http"
 	"strings"
@@ -65,6 +67,15 @@ func AuthAdminMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if ok {
+			jsonBytes, err := json.MarshalIndent(claims, "", "  ")
+			if err != nil {
+				fmt.Println("Error encoding claims to JSON:", err)
+			} else {
+				fmt.Println("JWT Claims (JSON):")
+				fmt.Println(string(jsonBytes))
+			}
+		}
 
 		// Cek role
 		if role, ok := claims["role"].(string); !ok || role != "admin" {
@@ -75,6 +86,7 @@ func AuthAdminMiddleware() gin.HandlerFunc {
 
 		// Lanjutkan ke handler
 		c.Set("user_id", claims["user_id"])
+		c.Set("full_name", claims["full_name"])
 		c.Next()
 	}
 }

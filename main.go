@@ -8,7 +8,7 @@ import (
 
 func main() {
 	config.ConnectDB()
-	config.DB.AutoMigrate(&model.User{})
+	config.DB.AutoMigrate(&model.User{}, &model.ActivityLog{})
 	r := router.SetupRouter()
 	r.Run(":8080")
 }
