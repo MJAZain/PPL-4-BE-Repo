@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"go-gin-auth/dto"
 	"go-gin-auth/model"
 	"go-gin-auth/service"
 	"go-gin-auth/utils"
@@ -38,7 +39,8 @@ func Register(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
-	var input model.User
+
+	var input dto.LoginRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.Respond(c, http.StatusBadRequest, "Invalid request", err.Error(), nil)
@@ -57,10 +59,18 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	// Cek password yang dimasukkan dengan password yang tersimpan
 	match := service.VerifyPassword(input.Password, user.Password)
-
 	if !match {
-		utils.Respond(c, http.StatusUnauthorized, "Login failed", "Incorrect password", nil)
+		err = service.HandleFailedLogin(&user)
+		utils.Respond(c, http.StatusUnauthorized, "Login failed", err.Error(), nil)
+		return
+	}
+
+	// Periksa apakah akun terkunci
+	if user.LockedUntil.After(time.Now()) {
+		remainingTime := time.Until(user.LockedUntil).Round(time.Minute)
+		utils.Respond(c, http.StatusUnauthorized, "Login failed", "akun terkunci sementara, coba lagi setelah "+remainingTime.String(), nil)
 		return
 	}
 
@@ -82,6 +92,13 @@ func Login(c *gin.Context) {
 	err = service.LogActivity(user.ID, user.FullName, "Login", "User logged in successfully", c)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, "Failed to log activity", err.Error(), nil)
+		return
+	}
+
+	// Jika login berhasil, reset failed login attempts
+	err = service.ResetFailedLoginAttempts(&user)
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, "error", err.Error(), nil)
 		return
 	}
 

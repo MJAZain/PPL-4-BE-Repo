@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"go-gin-auth/config"
 	"go-gin-auth/model"
+	"log"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -45,8 +47,17 @@ func GetUserByID(id uint) (model.User, error) {
 	return user, err
 }
 
-func UpdateUser(id uint, updated model.User) error {
+func UpdateUserOri(id uint, updated model.User) error {
 	return config.DB.Model(&model.User{}).Where("id = ?", id).Updates(updated).Error
+}
+func UpdateUser(id uint, user model.User) error {
+	err := config.DB.Model(&model.User{}).Where("id = ?", id).Updates(user).Error
+	if err != nil {
+		log.Println("Failed to update user:", err)
+	} else {
+		log.Println("User updated successfully:", user.FailedLoginAttempts)
+	}
+	return err
 }
 
 func DeleteUser(id uint) error {
@@ -134,4 +145,41 @@ func CountActiveAdmins() (int64, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func ResetFailedLoginAttempts(user *model.User) error {
+	// Ambil ulang data user dari database
+	var freshUser model.User
+	if err := config.DB.First(&freshUser, user.ID).Error; err != nil {
+		return err
+	}
+
+	// Login berhasil, reset counter
+	user.FailedLoginAttempts = 0
+	user.LockedUntil = time.Time{} // Reset waktu kunci
+	config.DB.Save(&user)
+	return nil
+}
+
+// handleFailedLogin menangani logika ketika login gagal
+func HandleFailedLogin(user *model.User) error {
+	configSystem, err := GetLoginConfig()
+	if err != nil {
+		return errors.New("failed to fetch login configuration")
+	}
+
+	user.FailedLoginAttempts++
+
+	// Jika melebihi batas percobaan, kunci akun
+	if user.FailedLoginAttempts >= configSystem.MaxFailedLogin {
+		user.LockedUntil = time.Now().Add(time.Duration(configSystem.LockoutDuration) * time.Minute)
+		config.DB.Save(user)
+		return fmt.Errorf("terlalu banyak percobaan gagal, akun terkunci sementara selama %d menit", configSystem.LockoutDuration)
+	}
+	// Simpan jumlah percobaan gagal
+	config.DB.Save(user)
+
+	attemptsLeft := configSystem.MaxFailedLogin - user.FailedLoginAttempts
+	return fmt.Errorf("kredensial tidak valid, tersisa %d percobaan sebelum akun dikunci", attemptsLeft)
+
 }
