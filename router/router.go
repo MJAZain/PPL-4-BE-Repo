@@ -3,11 +3,18 @@ package router
 import (
 	"go-gin-auth/controller"
 	"go-gin-auth/middleware"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func SetupRouter() *gin.Engine {
+	err := godotenv.Load(".env")
+	if err != nil {
+		panic("Error loading .env file")
+	}
+	gin.SetMode(os.Getenv("GIN_MODE"))
 	r := gin.Default()
 
 	// Group all under /api
@@ -30,7 +37,6 @@ func SetupRouter() *gin.Engine {
 			users.PATCH("/:id/deactivate", controller.DeactivateUser)
 			users.PATCH("/:id/reactivate", controller.ReactivateUser)
 			users.PUT("/:id/reset-password", controller.ResetUserPassword)
-
 		}
 	}
 	// // Auth routes
