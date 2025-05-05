@@ -7,6 +7,7 @@ import (
 	"go-gin-auth/model"
 	"go-gin-auth/service"
 	"go-gin-auth/utils"
+	"log"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -19,24 +20,39 @@ import (
 var jwtKey = []byte("PPL-K4-2025")
 
 func Register(c *gin.Context) {
-	var user model.User
+	var userDTO dto.RegisterRequestDTO
 
-	if err := c.ShouldBindJSON(&user); err != nil {
+	if err := c.ShouldBindJSON(&userDTO); err != nil {
 		utils.Respond(c, http.StatusBadRequest, "Invalid input", err.Error(), nil)
 		return
 	}
 
-	if err := service.CreateUser(&user); err != nil {
+	user, err := utils.ConvertDTOToUser(userDTO)
+
+	if err != nil {
+		utils.Respond(c, http.StatusInternalServerError, "Error converting DTO to user", err.Error(), nil)
+		return
+	}
+
+	if err := service.CreateUser(user); err != nil {
 		utils.Respond(c, http.StatusInternalServerError, "Failed to create user", err.Error(), nil)
 		return
 	}
 
-	// Menambahkan aktivitas log setelah user berhasil didaftarkan
-	err := service.LogActivity(user.ID, user.FullName, "Register", "User registered successfully.", c)
-	if err != nil {
-		utils.Respond(c, http.StatusInternalServerError, "Failed to log activity", err.Error(), nil)
-		return
+	// Simpan audit log (INSERT)
+	if err := service.LogAudit(utils.GetTableName(user), fmt.Sprint(user.ID), "INSERT", strconv.FormatUint(uint64(utils.GetCurrentUserID(c)), 10), nil, user, "User registered successfully."); err != nil {
+		// utils.Respond(c, http.StatusInternalServerError, "Gagal mencatat log audit register:", err.Error(), nil)
+		// return
+		log.Println("Gagal mencatat log audit register:", err)
 	}
+
+	// Menambahkan aktivitas log setelah user berhasil didaftarkan
+	// err = service.LogActivity(user.ID, user.FullName, "Register", "User registered successfully.", c)
+	// if err != nil {
+	// 	utils.Respond(c, http.StatusInternalServerError, "Failed to log activity", err.Error(), nil)
+	// 	return
+	// }
+
 	utils.Respond(c, http.StatusCreated, "User registered successfully", nil, user)
 }
 
@@ -266,15 +282,23 @@ func UpdateUser(c *gin.Context) {
 		utils.Respond(c, http.StatusNotFound, "User not found", err.Error(), nil)
 		return
 	}
+	// Simpan salinan before
+	before := existingUser
 
 	// Update field yang ingin diubah (hindari overwrite ID/Password langsung)
 	existingUser.Email = input.Email
 	existingUser.FullName = input.FullName
 	existingUser.Role = input.Role
+	existingUser.Phone = input.Phone
 
 	if err := service.UpdateUser(id, existingUser); err != nil {
 		utils.Respond(c, http.StatusInternalServerError, "Failed to update user", err.Error(), nil)
 		return
+	}
+
+	// Audit trail setelah update
+	if err := service.LogAudit(utils.GetTableName(existingUser), fmt.Sprint(id), "UPDATE", strconv.FormatUint(uint64(utils.GetCurrentUserID(c)), 10), before, existingUser, "User updated successfully"); err != nil {
+		log.Println("Gagal mencatat audit update user:", err)
 	}
 
 	utils.Respond(c, http.StatusOK, "User updated successfully", nil, existingUser)

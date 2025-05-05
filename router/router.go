@@ -14,13 +14,15 @@ func SetupRouter() *gin.Engine {
 	api := r.Group("/api")
 	{
 		// Auth routes
-		api.POST("/users/register", controller.Register)
+		// api.POST("/users/register", controller.Register)
+		// api.POST("/users/logout", controller.Logout)
 		api.POST("/users/login", controller.Login)
-		api.POST("/users/logout", controller.Logout)
 		// Protected user routes
 		users := api.Group("/users")
 		users.Use(middleware.AuthAdminMiddleware())
 		{
+			users.POST("/register", controller.Register)
+			users.POST("/logout", controller.Logout)
 			users.GET("/", controller.GetUsers)
 			users.GET("/:id", controller.GetUser)
 			users.PUT("/:id", controller.UpdateUser)
@@ -29,7 +31,7 @@ func SetupRouter() *gin.Engine {
 			users.PATCH("/:id/deactivate", controller.DeactivateUser)
 			users.PATCH("/:id/reactivate", controller.ReactivateUser)
 			users.PUT("/:id/reset-password", controller.ResetUserPassword)
-			users.GET("/export", controller.ExportUsersCSV)
+			users.GET("/export/csv", controller.ExportUsersCSV)
 
 		}
 	}
