@@ -2,6 +2,7 @@ package router
 
 import (
 	"go-gin-auth/controller"
+	"go-gin-auth/internal/unit"
 	"go-gin-auth/middleware"
 	"os"
 
@@ -37,6 +38,17 @@ func SetupRouter() *gin.Engine {
 			users.PATCH("/:id/deactivate", controller.DeactivateUser)
 			users.PATCH("/:id/reactivate", controller.ReactivateUser)
 			users.PUT("/:id/reset-password", controller.ResetUserPassword)
+		}
+
+		unit := unit.NewUnitHandler()
+		units := api.Group("/units")
+		units.Use(middleware.AuthAdminMiddleware())
+		{
+			units.POST("/", unit.CreateUnit)
+			units.GET("/", unit.GetUnits)
+			units.GET("/:id", unit.GetUnitByID)
+			units.PUT("/:id", unit.UpdateUnit)
+			units.DELETE("/:id", unit.DeleteUnit)
 		}
 	}
 	// // Auth routes

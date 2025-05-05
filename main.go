@@ -2,11 +2,9 @@ package main
 
 import (
 	"go-gin-auth/config"
-	"go-gin-auth/model"
+	"go-gin-auth/helpers"
 	"go-gin-auth/router"
 	"os"
-
-	product "go-gin-auth/internal/product"
 
 	"github.com/joho/godotenv"
 )
@@ -19,13 +17,7 @@ func main() {
 
 	config.ConnectDB()
 
-	migrateErr := config.DB.AutoMigrate(
-		&model.User{},
-		&model.ActivityLog{},
-		&model.AuditTrail{},
-		&model.SystemConfig{},
-		&product.Product{},
-	)
+	migrateErr := helpers.MigrateDB()
 	if migrateErr != nil {
 		panic("error migrating database: " + migrateErr.Error())
 	}
