@@ -157,6 +157,7 @@ func ResetFailedLoginAttempts(user *model.User) error {
 	// Login berhasil, reset counter
 	user.FailedLoginAttempts = 0
 	user.LockedUntil = time.Time{} // Reset waktu kunci
+	user.LastLoginAt = time.Now()
 	config.DB.Save(&user)
 	return nil
 }
@@ -182,4 +183,25 @@ func HandleFailedLogin(user *model.User) error {
 	attemptsLeft := configSystem.MaxFailedLogin - user.FailedLoginAttempts
 	return fmt.Errorf("kredensial tidak valid, tersisa %d percobaan sebelum akun dikunci", attemptsLeft)
 
+}
+func LogoutUser(userID uint) error {
+	// Ambil user berdasarkan ID
+	user, err := GetUserByID(userID)
+	if err != nil {
+		return err
+	}
+
+	// Perbarui LastLogoutAt hanya jika belum logout setelah login
+	if user.LastLogoutAt.Before(user.LastLoginAt) {
+		user.LastLogoutAt = time.Now()
+
+		// Simpan perubahan ke database
+		err = UpdateUser(user.ID, user)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New("user sudah logout atau belum login ulang")
+	}
+	return nil
 }
