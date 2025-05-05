@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"go-gin-auth/config"
+	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/unit"
 	"go-gin-auth/model"
@@ -17,6 +18,7 @@ func MigrateDB() error {
 		&model.SystemConfig{},
 		&product.Product{},
 		&unit.Unit{},
+		&category.Category{},
 	)
 
 	if err != nil {

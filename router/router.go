@@ -2,6 +2,7 @@ package router
 
 import (
 	"go-gin-auth/controller"
+	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/unit"
 	"go-gin-auth/middleware"
 	"os"
@@ -49,6 +50,17 @@ func SetupRouter() *gin.Engine {
 			units.GET("/:id", unit.GetUnitByID)
 			units.PUT("/:id", unit.UpdateUnit)
 			units.DELETE("/:id", unit.DeleteUnit)
+		}
+
+		category := category.NewCategoryHandler()
+		categories := api.Group("/categories")
+		categories.Use(middleware.AuthAdminMiddleware())
+		{
+			categories.POST("/", category.CreateCategory)
+			categories.GET("/", category.GetCategories)
+			categories.GET("/:id", category.GetCategoryByID)
+			categories.PUT("/:id", category.UpdateCategory)
+			categories.DELETE("/:id", category.DeleteCategory)
 		}
 	}
 	// // Auth routes
