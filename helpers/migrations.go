@@ -19,6 +19,7 @@ func MigrateDB() error {
 		&product.Product{},
 		&unit.Unit{},
 		&category.Category{},
+		&model.AuditLog{},
 	)
 
 	if err != nil {
