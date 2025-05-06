@@ -1,79 +1,160 @@
 package product
 
-// import (
-// 	"go-gin-auth/model"
+import (
+	"net/http"
+	"strconv"
 
-// 	"github.com/gin-gonic/gin"
-// 	"gorm.io/gorm"
-// )
+	"github.com/gin-gonic/gin"
+)
 
-// type ProductHandler struct {
-// 	DB             *gorm.DB
-// 	ProductService *ProductService
-// }
+type ProductHandler struct {
+	service ProductService
+}
 
-// func NewProductHandler(db *gorm.DB) *ProductHandler {
-// 	return &ProductHandler{
-// 		DB:             db,
-// 		ProductService: NewProductService(),
-// 	}
-// }
+func NewProductHandler() *ProductHandler {
+	return &ProductHandler{service: *NewProductService()}
+}
 
-// func (h *ProductHandler) CreateProduct(c *gin.Context) (*gin.H, error) {
-// 	var input Product
+func (h *ProductHandler) GetProducts(c *gin.Context) {
+	products, err := h.service.GetProducts()
 
-// 	if err := c.ShouldBind(&input); err != nil {
-// 		return &gin.H{
-// 			"status":  "failed",
-// 			"message": err.Error(),
-// 		}, nil
-// 	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to get products", "error": err.Error()})
+		return
+	}
 
-// 	if input.Name == "" ||
-// 		input.Code == "" ||
-// 		input.Barcode == "" ||
-// 		input.Category == "" ||
-// 		input.Unit == "" ||
-// 		input.PackageContent == 0 ||
-// 		input.PurchasePrice == 0 ||
-// 		input.SellingPrice == 0 ||
-// 		input.StockQuantity == 0 ||
-// 		input.StorageLocation == "" ||
-// 		input.ExpiryDate.IsZero() ||
-// 		input.Brand == "" {
-// 		return &gin.H{
-// 			"status":  "failed",
-// 			"message": "All fields are required",
-// 		}, nil
-// 	}
-// 	currentUser, ok := c.Get("currentUser")
-// 	if !ok {
-// 		return &gin.H{
-// 			"status":  "failed",
-// 			"message": "Failed to get current user",
-// 		}, nil
-// 	}
+	c.JSON(http.StatusOK, gin.H{
+		"status": http.StatusOK,
+		"data":   products,
+	})
+}
 
-// 	if currentUser == nil {
-// 		return &gin.H{
-// 			"status":  "failed",
-// 			"message": "Failed to get current user",
-// 		}, nil
-// 	}
+func (h *ProductHandler) CreateProduct(c *gin.Context) {
+	var productDTO Product
+	err := c.Bind(&productDTO)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Failed to bind request",
+			"error":   err.Error(),
+		})
+		return
+	}
 
-// 	input.CreatedBy = currentUser.(model.User).ID
+	currentUserIDFloat, _ := c.Get("user_id")
+	currentUserID := uint(currentUserIDFloat.(float64))
+	productDTO.CreatedBy = currentUserID
 
-// 	isSuccess, message := h.ProductService.CreateDataProduct(input)
+	product, err := h.service.CreateProduct(productDTO)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Failed to create product",
+			"error":   err.Error(),
+		})
+		return
+	}
 
-// 	if isSuccess {
-// 		return &gin.H{
-// 			"status":  "success",
-// 			"message": message,
-// 		}, nil
-// 	}
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  http.StatusCreated,
+		"message": "Product created successfully",
+		"data":    product,
+	})
+}
 
-// 	return &gin.H{
-// 		"status":  "failed",
-// 		"message": message,
-// 	}, nil
-// }
+func (h *ProductHandler) GetProductByID(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Failed to convert id",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	product, err := h.service.GetProductByID(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"status":  http.StatusNotFound,
+			"message": "Product not found",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"message": "Product found",
+		"data":    product,
+	})
+}
+
+func (h *ProductHandler) UpdateProduct(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Failed to convert id",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	var productDTO Product
+	err = c.Bind(&productDTO)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Failed to bind request",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	product, err := h.service.UpdateProduct(uint(id), productDTO)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Failed to update product",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"message": "Product updated successfully",
+		"data":    product,
+	})
+}
+
+func (h *ProductHandler) DeleteProduct(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "Failed to convert id",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	err = h.service.DeleteProduct(uint(id))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Failed to delete product",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  http.StatusOK,
+		"message": "Product deleted successfully",
+	})
+}
