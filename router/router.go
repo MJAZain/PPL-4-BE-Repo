@@ -2,6 +2,9 @@ package router
 
 import (
 	"go-gin-auth/controller"
+	"go-gin-auth/internal/category"
+	"go-gin-auth/internal/product"
+	"go-gin-auth/internal/unit"
 	"go-gin-auth/middleware"
 	"go-gin-auth/repository"
 	"go-gin-auth/service"
@@ -46,6 +49,38 @@ func SetupRouter() *gin.Engine {
 		{
 			transaksi.POST("/", controller.NewTransaksiController(svc).CreateTransaksi)
 			transaksi.GET("/", controller.NewTransaksiController(svc).GetAllTransaksi)
+		}
+		unit := unit.NewUnitHandler()
+		units := api.Group("/units")
+		units.Use(middleware.AuthAdminMiddleware())
+		{
+			units.POST("/", unit.CreateUnit)
+			units.GET("/", unit.GetUnits)
+			units.GET("/:id", unit.GetUnitByID)
+			units.PUT("/:id", unit.UpdateUnit)
+			units.DELETE("/:id", unit.DeleteUnit)
+		}
+
+		category := category.NewCategoryHandler()
+		categories := api.Group("/categories")
+		categories.Use(middleware.AuthAdminMiddleware())
+		{
+			categories.POST("/", category.CreateCategory)
+			categories.GET("/", category.GetCategories)
+			categories.GET("/:id", category.GetCategoryByID)
+			categories.PUT("/:id", category.UpdateCategory)
+			categories.DELETE("/:id", category.DeleteCategory)
+		}
+
+		product := product.NewProductHandler()
+		products := api.Group("/products")
+		products.Use(middleware.AuthAdminMiddleware())
+		{
+			products.POST("/", product.CreateProduct)
+			products.GET("/", product.GetProducts)
+			products.GET("/:id", product.GetProductByID)
+			products.PUT("/:id", product.UpdateProduct)
+			products.DELETE("/:id", product.DeleteProduct)
 		}
 	}
 	return r
