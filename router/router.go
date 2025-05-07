@@ -5,11 +5,18 @@ import (
 	"go-gin-auth/middleware"
 	"go-gin-auth/repository"
 	"go-gin-auth/service"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func SetupRouter() *gin.Engine {
+	err := godotenv.Load(".env")
+	if err != nil {
+		panic("Error loading .env file")
+	}
+	gin.SetMode(os.Getenv("GIN_MODE"))
 	r := gin.Default()
 	repo := repository.NewTransaksiRepository()
 	svc := service.NewTransaksiService(repo)
