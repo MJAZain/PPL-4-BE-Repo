@@ -40,7 +40,10 @@ func Register(c *gin.Context) {
 	}
 
 	// Simpan audit log (INSERT)
-	if err := service.LogAudit(utils.GetTableName(user), fmt.Sprint(user.ID), "INSERT", strconv.FormatUint(uint64(utils.GetCurrentUserID(c)), 10), nil, user, "User registered successfully."); err != nil {
+	user.Password = "-" // Kosongkan password sebelum menyimpan ke log
+	if err := service.LogAudit(utils.GetTableName(user),
+		fmt.Sprint(user.ID), "INSERT", strconv.FormatUint(uint64(utils.GetCurrentUserID(c)), 10),
+		nil, user, "User registered successfully."); err != nil {
 		// utils.Respond(c, http.StatusInternalServerError, "Gagal mencatat log audit register:", err.Error(), nil)
 		// return
 		log.Println("Gagal mencatat log audit register:", err)
