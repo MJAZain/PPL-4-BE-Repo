@@ -14,12 +14,14 @@ func MigrateDB() error {
 	err := db.AutoMigrate(
 		&model.User{},
 		&model.ActivityLog{},
-		&model.AuditTrail{},
 		&model.SystemConfig{},
 		&product.Product{},
 		&unit.Unit{},
 		&category.Category{},
 		&model.AuditLog{},
+		&model.Transaksi{},
+		&model.StockOpname{},
+		&model.StockOpnameDetail{},
 	)
 
 	if err != nil {

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"go-gin-auth/config"
 	"go-gin-auth/controller"
 	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/product"
@@ -82,6 +83,20 @@ func SetupRouter() *gin.Engine {
 			products.PUT("/:id", product.UpdateProduct)
 			products.DELETE("/:id", product.DeleteProduct)
 		}
+
+		// Stock Opname
+		repoOpname := repository.NewStockOpnameRepository(config.DB)
+		svcOpname := service.NewStockOpnameService(repoOpname)
+		ctrlOpname := controller.NewStockOpnameController(svcOpname)
+
+		opname := api.Group("/opname")
+		{
+			opname.Use(middleware.AuthMiddleware()).POST("", ctrlOpname.Create)
+			opname.Use(middleware.AuthMiddleware()).GET("", ctrlOpname.GetAll)
+			opname.Use(middleware.AuthMiddleware()).GET("/:id", ctrlOpname.GetByID)
+			opname.Use(middleware.AuthAdminMiddleware()).DELETE("/:id", ctrlOpname.Delete)
+		}
+
 	}
 	return r
 }
