@@ -11,6 +11,7 @@ import (
 	"go-gin-auth/service"
 	"os"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -22,6 +23,18 @@ func SetupRouter() *gin.Engine {
 	}
 	gin.SetMode(os.Getenv("GIN_MODE"))
 	r := gin.Default()
+
+	// Tambahkan ini
+	r.Use(cors.Default())
+
+	// atau untuk konfigurasi custom:
+	// r.Use(cors.New(cors.Config{
+	//     AllowOrigins:     []string{"*"},
+	//     AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+	//     AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+	//     AllowCredentials: true,
+	// }))
+
 	repo := repository.NewTransaksiRepository()
 	svc := service.NewTransaksiService(repo)
 	//ctrl := controller.NewTransaksiController(svc)
