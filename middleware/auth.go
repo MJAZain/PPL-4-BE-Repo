@@ -33,7 +33,25 @@ func AuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
+		// Lanjutkan ke handler
+		// Ambil claims
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			utils.Respond(c, http.StatusUnauthorized, "Unauthorized", "Invalid token claims", nil)
+			c.Abort()
+			return
+		}
+		if ok {
+			jsonBytes, err := json.MarshalIndent(claims, "", "  ")
+			if err != nil {
+				fmt.Println("Error encoding claims to JSON:", err)
+			} else {
+				fmt.Println("JWT Claims (JSON):")
+				fmt.Println(string(jsonBytes))
+			}
+		}
+		c.Set("user_id", claims["user_id"])
+		c.Set("full_name", claims["full_name"])
 		c.Next()
 	}
 }

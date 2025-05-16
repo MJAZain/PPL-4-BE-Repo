@@ -25,15 +25,15 @@ func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
 	// Tambahkan ini
-	r.Use(cors.Default())
+	// r.Use(cors.Default())
 
-	// atau untuk konfigurasi custom:
-	// r.Use(cors.New(cors.Config{
-	//     AllowOrigins:     []string{"*"},
-	//     AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	//     AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-	//     AllowCredentials: true,
-	// }))
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"}, // alamat asal React kamu
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	repo := repository.NewTransaksiRepository()
 	svc := service.NewTransaksiService(repo)
@@ -102,12 +102,40 @@ func SetupRouter() *gin.Engine {
 		svcOpname := service.NewStockOpnameService(repoOpname)
 		ctrlOpname := controller.NewStockOpnameController(svcOpname)
 
-		opname := api.Group("/opname")
+		// opname := api.Group("/opname")
+		// {
+		// 	opname.Use(middleware.AuthMiddleware()).POST("", ctrlOpname.Create)
+		// 	opname.Use(middleware.AuthMiddleware()).GET("", ctrlOpname.GetAll)
+		// 	opname.Use(middleware.AuthMiddleware()).GET("/:id", ctrlOpname.GetByID)
+		// 	opname.Use(middleware.AuthAdminMiddleware()).DELETE("/:id", ctrlOpname.Delete)
+		// }
+
+		stockOpname := api.Group("/stock-opname")
 		{
-			opname.Use(middleware.AuthMiddleware()).POST("", ctrlOpname.Create)
-			opname.Use(middleware.AuthMiddleware()).GET("", ctrlOpname.GetAll)
-			opname.Use(middleware.AuthMiddleware()).GET("/:id", ctrlOpname.GetByID)
-			opname.Use(middleware.AuthAdminMiddleware()).DELETE("/:id", ctrlOpname.Delete)
+			//Reporting
+			stockOpname.Use(middleware.AuthMiddleware()).GET("", ctrlOpname.GetOpnameList)
+			stockOpname.Use(middleware.AuthMiddleware()).GET("/:opnameID", ctrlOpname.GetOpnameDetails)
+			// Draft operations
+			stockOpname.Use(middleware.AuthMiddleware()).POST("/draft", ctrlOpname.CreateDraft)
+			stockOpname.Use(middleware.AuthMiddleware()).GET("/draft/:opnameID", ctrlOpname.GetDraft)
+			stockOpname.Use(middleware.AuthMiddleware()).PUT("/draft/:opnameID", ctrlOpname.UpdateDraft)
+			stockOpname.Use(middleware.AuthMiddleware()).DELETE("/draft/:opnameID", ctrlOpname.DeleteDraft)
+			// Products operations
+			stockOpname.Use(middleware.AuthMiddleware()).POST("/draft/:opnameID/products", ctrlOpname.AddProductToDraft)
+			stockOpname.Use(middleware.AuthMiddleware()).DELETE("/draft/:opnameID/products/:detailID", ctrlOpname.RemoveProductFromDraft)
+			// Process operations
+			stockOpname.Use(middleware.AuthMiddleware()).POST("/:opnameID/start", ctrlOpname.StartOpname)
+			stockOpname.Use(middleware.AuthMiddleware()).PUT("/details/:detailID/record", ctrlOpname.RecordActualStock)
+			// Completion operations
+			stockOpname.Use(middleware.AuthMiddleware()).POST("/:opnameID/complete", ctrlOpname.CompleteOpname)
+			stockOpname.Use(middleware.AuthMiddleware()).POST("/:opnameID/cancel", ctrlOpname.CancelOpname)
+
+			// users story
+			stockOpname.Use(middleware.AuthMiddleware()).GET("/history", ctrlOpname.GetStockOpnameHistory)
+			stockOpname.Use(middleware.AuthMiddleware()).GET("/products", ctrlOpname.GetProducts)
+			stockOpname.Use(middleware.AuthMiddleware()).GET("/discrepancies", ctrlOpname.GetStockDiscrepancies)
+			//otomatis tidak manual
+			//stockOpname.Use(middleware.AuthMiddleware()).PUT("/products/:product_id", ctrlOpname.AdjustProductStock)
 		}
 
 	}
