@@ -5,6 +5,7 @@ import (
 	"go-gin-auth/controller"
 	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/incomingProducts"
+	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/unit"
 	"go-gin-auth/middleware"
@@ -149,6 +150,17 @@ func SetupRouter() *gin.Engine {
 			incomingProductsGroup.GET("/:id", incomingProduct.GetIncomingProductByID)
 			incomingProductsGroup.PUT("/:id", incomingProduct.UpdateIncomingProduct)
 			incomingProductsGroup.DELETE("/:id", incomingProduct.DeleteIncomingProduct)
+		}
+
+		outgoingProduct := outgoingProducts.NewHandlerOutgoingProducts()
+		outgoingProductGroup := api.Group("/outgoing-products")
+		outgoingProductGroup.Use(middleware.AuthAdminMiddleware())
+		{
+			outgoingProductGroup.POST("/", outgoingProduct.CreateOutgoingProduct)
+			outgoingProductGroup.GET("/", outgoingProduct.GetAllOutgoingProducts)
+			outgoingProductGroup.GET("/:id", outgoingProduct.GetOutgoingProductByID)
+			outgoingProductGroup.PUT("/:id", outgoingProduct.UpdateOutgoingProduct)
+			outgoingProductGroup.DELETE("/:id", outgoingProduct.DeleteOutgoingProduct)
 		}
 
 	}

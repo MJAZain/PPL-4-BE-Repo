@@ -4,6 +4,7 @@ import (
 	"go-gin-auth/config"
 	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/incomingProducts"
+	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/stock"
 	"go-gin-auth/internal/unit"
@@ -27,6 +28,8 @@ func MigrateDB() error {
 		&incomingProducts.IncomingProduct{},
 		&incomingProducts.IncomingProductDetail{},
 		&stock.Stock{},
+		&outgoingProducts.OutgoingProduct{},
+		&outgoingProducts.OutgoingProductDetail{},
 	)
 
 	if err != nil {
