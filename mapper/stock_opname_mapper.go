@@ -3,6 +3,7 @@ package mapper
 import (
 	"go-gin-auth/dto"
 	"go-gin-auth/model"
+	"strconv"
 )
 
 // Fungsi untuk mengonversi StockOpnameRequest menjadi StockOpname
@@ -11,8 +12,8 @@ func ToModelStockOpname(request dto.StockOpnameRequest) model.StockOpname {
 	// Pemetaan untuk detail
 	for _, detail := range request.Details {
 		details = append(details, model.StockOpnameDetail{
-			ObatID:    detail.ObatID,
-			StokFisik: detail.StokFisik,
+			ProductID:   strconv.FormatUint(uint64(detail.ObatID), 10),
+			ActualStock: detail.StokFisik,
 			// StokSistem: 0, // Asumsikan nilai stok sistem untuk detail, sesuaikan jika ada data lain
 			// Selisih:    0, // Asumsikan nilai selisih, sesuaikan sesuai dengan kebutuhan
 		})
@@ -20,7 +21,7 @@ func ToModelStockOpname(request dto.StockOpnameRequest) model.StockOpname {
 
 	// Pemetaan objek StockOpname utama
 	return model.StockOpname{
-		UserID:  request.UserID,
-		Details: details,
+		CreatedBy: strconv.FormatUint(uint64(request.UserID), 10),
+		Details:   details,
 	}
 }
