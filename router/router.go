@@ -4,6 +4,8 @@ import (
 	"go-gin-auth/config"
 	"go-gin-auth/controller"
 	"go-gin-auth/internal/category"
+	"go-gin-auth/internal/incomingProducts"
+	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/unit"
 	"go-gin-auth/middleware"
@@ -136,6 +138,29 @@ func SetupRouter() *gin.Engine {
 			stockOpname.Use(middleware.AuthMiddleware()).GET("/discrepancies", ctrlOpname.GetStockDiscrepancies)
 			//otomatis tidak manual
 			//stockOpname.Use(middleware.AuthMiddleware()).PUT("/products/:product_id", ctrlOpname.AdjustProductStock)
+		}
+
+		// Incoming Products
+		incomingProduct := incomingProducts.NewHandlerIncomingProducts()
+		incomingProductsGroup := api.Group("/incoming-products")
+		incomingProductsGroup.Use(middleware.AuthAdminMiddleware())
+		{
+			incomingProductsGroup.POST("/", incomingProduct.CreateIncomingProduct)
+			incomingProductsGroup.GET("/", incomingProduct.GetAllIncomingProducts)
+			incomingProductsGroup.GET("/:id", incomingProduct.GetIncomingProductByID)
+			incomingProductsGroup.PUT("/:id", incomingProduct.UpdateIncomingProduct)
+			incomingProductsGroup.DELETE("/:id", incomingProduct.DeleteIncomingProduct)
+		}
+
+		outgoingProduct := outgoingProducts.NewHandlerOutgoingProducts()
+		outgoingProductGroup := api.Group("/outgoing-products")
+		outgoingProductGroup.Use(middleware.AuthAdminMiddleware())
+		{
+			outgoingProductGroup.POST("/", outgoingProduct.CreateOutgoingProduct)
+			outgoingProductGroup.GET("/", outgoingProduct.GetAllOutgoingProducts)
+			outgoingProductGroup.GET("/:id", outgoingProduct.GetOutgoingProductByID)
+			outgoingProductGroup.PUT("/:id", outgoingProduct.UpdateOutgoingProduct)
+			outgoingProductGroup.DELETE("/:id", outgoingProduct.DeleteOutgoingProduct)
 		}
 
 	}
