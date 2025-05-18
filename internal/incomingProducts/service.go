@@ -2,6 +2,7 @@ package incomingProducts
 
 import (
 	"errors"
+	"go-gin-auth/internal/stock"
 )
 
 type Service interface {
@@ -15,11 +16,12 @@ type Service interface {
 }
 
 type service struct {
-	repository Repository
+	repository      Repository
+	repositoryStock stock.Repository
 }
 
 func NewService() *service {
-	return &service{repository: NewRepository()}
+	return &service{repository: NewRepository(), repositoryStock: stock.NewRepository()}
 }
 
 func (s *service) CreateIncomingProduct(incomingProduct *IncomingProduct, details []IncomingProductDetail) error {
@@ -54,6 +56,11 @@ func (s *service) CreateIncomingProduct(incomingProduct *IncomingProduct, detail
 
 		// Hitung total
 		details[i].Total = float64(details[i].Quantity) * details[i].Price
+
+		err := s.repositoryStock.UpdateProductStock(details[i].ProductID, details[i].Quantity, true)
+		if err != nil {
+			return errors.New("gagal memperbarui stok produk")
+		}
 	}
 
 	return s.repository.Create(incomingProduct, details)
@@ -109,11 +116,37 @@ func (s *service) UpdateIncomingProductDetails(details []IncomingProductDetail) 
 
 		// Hitung total
 		details[i].Total = float64(details[i].Quantity) * details[i].Price
+
+		existingDetail, err := s.repository.GetDetailByIncomingProductID(details[i].IncomingProductID)
+		if err != nil {
+			return errors.New("gagal mendapatkan detail produk masuk")
+		}
+
+		err = s.repositoryStock.UpdateProductStock(details[i].ProductID, existingDetail.Quantity, false)
+		if err != nil {
+			return errors.New("gagal memperbarui stok produk")
+		}
+
+		err = s.repositoryStock.UpdateProductStock(details[i].ProductID, details[i].Quantity, true)
+		if err != nil {
+			return errors.New("gagal memperbarui stok produk")
+		}
 	}
 
 	return s.repository.UpdateDetails(details)
 }
 
 func (s *service) DeleteIncomingProduct(id uint) error {
+	details, err := s.repository.GetDetailsByIncomingProductID(id)
+	if err != nil {
+		return err
+	}
+
+	for _, detail := range details {
+		if err := s.repositoryStock.UpdateProductStock(detail.ProductID, detail.Quantity, false); err != nil {
+			return err
+		}
+	}
+
 	return s.repository.Delete(id)
 }

@@ -50,7 +50,6 @@ func (h *Handler) CreateIncomingProduct(c *gin.Context) {
 		return
 	}
 
-	// Get full data with ID
 	product, err := h.service.GetIncomingProductByID(request.IncomingProduct.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -157,19 +156,6 @@ func (h *Handler) GetIncomingProductByID(c *gin.Context) {
 	})
 }
 
-// UpdateIncomingProduct godoc
-// @Summary Mengupdate produk masuk
-// @Description Mengupdate data produk masuk berdasarkan ID
-// @Tags IncomingProducts
-// @Accept json
-// @Produce json
-// @Param id path int true "ID Produk Masuk"
-// @Param incomingProduct body IncomingProduct true "Data produk masuk"
-// @Success 200 {object} IncomingProduct
-// @Failure 400 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /incoming-products/{id} [put]
 func (h *Handler) UpdateIncomingProduct(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -181,8 +167,13 @@ func (h *Handler) UpdateIncomingProduct(c *gin.Context) {
 		return
 	}
 
-	var incomingProduct IncomingProduct
-	if err := c.ShouldBindJSON(&incomingProduct); err != nil {
+	// Struktur untuk menerima data gabungan
+	var requestData struct {
+		IncomingProduct IncomingProduct         `json:"incoming_product"`
+		Details         []IncomingProductDetail `json:"details"`
+	}
+
+	if err := c.ShouldBindJSON(&requestData); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"status":  http.StatusBadRequest,
 			"message": "Input tidak valid",
@@ -191,7 +182,8 @@ func (h *Handler) UpdateIncomingProduct(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.UpdateIncomingProduct(uint(id), &incomingProduct); err != nil {
+	// 1. Update produk masuk
+	if err := h.service.UpdateIncomingProduct(uint(id), &requestData.IncomingProduct); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  http.StatusInternalServerError,
 			"message": "Gagal mengupdate produk masuk",
@@ -200,6 +192,24 @@ func (h *Handler) UpdateIncomingProduct(c *gin.Context) {
 		return
 	}
 
+	// 2. Update detail produk masuk jika ada
+	if len(requestData.Details) > 0 {
+		// Pastikan semua detail memiliki incoming_product_id yang sama
+		for i := range requestData.Details {
+			requestData.Details[i].IncomingProductID = uint(id)
+		}
+
+		if err := h.service.UpdateIncomingProductDetails(requestData.Details); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  http.StatusInternalServerError,
+				"message": "Gagal mengupdate detail produk masuk",
+				"error":   err.Error(),
+			})
+			return
+		}
+	}
+
+	// Ambil data produk masuk yang sudah diupdate
 	product, err := h.service.GetIncomingProductByID(uint(id))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -210,76 +220,12 @@ func (h *Handler) UpdateIncomingProduct(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":  http.StatusOK,
-		"message": "Produk masuk berhasil diupdate",
-		"data":    product,
-	})
-}
-
-// UpdateIncomingProductDetails godoc
-// @Summary Mengupdate detail produk masuk
-// @Description Mengupdate detail produk masuk berdasarkan ID produk masuk
-// @Tags IncomingProducts
-// @Accept json
-// @Produce json
-// @Param id path int true "ID Produk Masuk"
-// @Param details body []IncomingProductDetail true "Detail produk masuk"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Router /incoming-products/{id}/details [put]
-func (h *Handler) UpdateIncomingProductDetails(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  http.StatusBadRequest,
-			"message": "Parameter ID tidak valid",
-			"error":   err.Error(),
-		})
-		return
-	}
-
-	var details []IncomingProductDetail
-	if err := c.ShouldBindJSON(&details); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  http.StatusBadRequest,
-			"message": "Input tidak valid",
-			"error":   err.Error(),
-		})
-		return
-	}
-
-	// Pastikan semua detail memiliki incoming_product_id yang sama
-	for i := range details {
-		details[i].IncomingProductID = uint(id)
-	}
-
-	if err := h.service.UpdateIncomingProductDetails(details); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Gagal mengupdate detail produk masuk",
-			"error":   err.Error(),
-		})
-		return
-	}
-
+	// Ambil detail produk masuk yang sudah diupdate
 	updatedDetails, err := h.service.GetIncomingProductDetails(uint(id))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status":  http.StatusInternalServerError,
-			"message": "Detail produk masuk berhasil diupdate tetapi gagal mengambil data",
-			"error":   err.Error(),
-		})
-		return
-	}
-
-	// Update total amount pada produk masuk
-	product, err := h.service.GetIncomingProductByID(uint(id))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  http.StatusInternalServerError,
-			"message": "Detail produk masuk berhasil diupdate tetapi gagal mengambil produk masuk",
+			"message": "Produk masuk berhasil diupdate tetapi gagal mengambil data detail",
 			"error":   err.Error(),
 		})
 		return
@@ -287,7 +233,7 @@ func (h *Handler) UpdateIncomingProductDetails(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":  http.StatusOK,
-		"message": "Detail produk masuk berhasil diupdate",
+		"message": "Produk masuk dan detailnya berhasil diupdate",
 		"data": gin.H{
 			"incoming_product": product,
 			"details":          updatedDetails,

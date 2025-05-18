@@ -12,6 +12,7 @@ type Repository interface {
 	GetAll() ([]IncomingProduct, error)
 	GetByID(id uint) (*IncomingProduct, error)
 	GetDetailsByIncomingProductID(incomingProductID uint) ([]IncomingProductDetail, error)
+	GetDetailByIncomingProductID(incomingProductID uint) (*IncomingProductDetail, error)
 	Update(id uint, incomingProduct *IncomingProduct) error
 	UpdateDetails(details []IncomingProductDetail) error
 	Delete(id uint) error
@@ -131,29 +132,20 @@ func (r *repository) UpdateDetails(details []IncomingProductDetail) error {
 	}()
 
 	for _, detail := range details {
-		if detail.ID > 0 {
-			// Update existing detail
-			var existingDetail IncomingProductDetail
-			if err := tx.First(&existingDetail, detail.ID).Error; err != nil {
-				tx.Rollback()
-				return err
-			}
+		var existingDetail IncomingProductDetail
+		if err := tx.Where("incoming_product_id = ? AND product_id = ?", detail.IncomingProductID, detail.ProductID).First(&existingDetail).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
 
-			existingDetail.ProductID = detail.ProductID
-			existingDetail.Quantity = detail.Quantity
-			existingDetail.Price = detail.Price
-			existingDetail.Total = detail.Total
+		existingDetail.ProductID = detail.ProductID
+		existingDetail.Quantity = detail.Quantity
+		existingDetail.Price = detail.Price
+		existingDetail.Total = detail.Total
 
-			if err := tx.Save(&existingDetail).Error; err != nil {
-				tx.Rollback()
-				return err
-			}
-		} else {
-			// Create new detail
-			if err := tx.Create(&detail).Error; err != nil {
-				tx.Rollback()
-				return err
-			}
+		if err := tx.Save(&existingDetail).Error; err != nil {
+			tx.Rollback()
+			return err
 		}
 	}
 
@@ -181,4 +173,15 @@ func (r *repository) Delete(id uint) error {
 	}
 
 	return tx.Commit().Error
+}
+
+func (r *repository) GetDetailByIncomingProductID(incomingProductID uint) (*IncomingProductDetail, error) {
+	var detail IncomingProductDetail
+	if err := r.db.Where("incoming_product_id = ?", incomingProductID).First(&detail).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("incoming product detail not found")
+		}
+		return nil, err
+	}
+	return &detail, nil
 }
