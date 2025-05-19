@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"go-gin-auth/dto"
+	"go-gin-auth/internal/adjustment"
+	"go-gin-auth/internal/opname"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/model"
 	"time"
@@ -13,35 +15,34 @@ import (
 )
 
 type StockOpnameRepository interface {
-	Create(opname *model.StockOpname) error
-	GetAll() ([]model.StockOpname, error)
-	GetByID(id string) (model.StockOpname, error)
+	Create(opname *opname.StockOpname) error
+	GetAll() ([]opname.StockOpname, error)
+	GetByID(id string) (opname.StockOpname, error)
 	Delete(id string) error
 	IsExist(id uint) (bool, error)
 	GetStockOpnameHistory(ctx context.Context) ([]dto.StockAdjustmentHistory, error)
 	GetStockDiscrepancies(ctx context.Context) ([]dto.StockDiscrepancy, error)
-	AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*model.StockAdjustment, error)
-	// CreateStockAdjustment(ctx context.Context, adjustment model.StockAdjustment) error
-	CreateStockAdjustment(tx *gorm.DB, adjustment *model.StockAdjustment) error
+	AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*adjustment.StockAdjustment, error)
+	CreateStockAdjustment(tx *gorm.DB, adjustment *adjustment.StockAdjustment) error
 	UpdateLastOpnameDate(ctx context.Context, productID string, opnameDate time.Time) error
-	// UpdateProductStock(ctx context.Context, productID string, newStock int) error
 	UpdateProductStock(tx *gorm.DB, productID string, newStock int) error
-	Update(opname *model.StockOpname) error
+	Update(opname *opname.StockOpname) error
 	ExistsByOpnameAndProduct(opnameID string, productID string) (bool, error)
-	FindByIDWithDetails(opnameID string) (*model.StockOpname, error)
-	UpdateTx(tx *gorm.DB, opname *model.StockOpname) error
+	FindByIDWithDetails(opnameID string) (*opname.StockOpname, error)
+	UpdateTx(tx *gorm.DB, opname *opname.StockOpname) error
 
 	// stock opname detail
 
-	CreateStockOpnameDetail(detail *model.StockOpnameDetail) error
-	FindStockOpNameDetailByID(detailID int) (*model.StockOpnameDetail, error)
-	UpdateStockOpNameDetail(detail *model.StockOpnameDetail) error
+	CreateStockOpnameDetail(detail *opname.StockOpnameDetail) error
+	PreloadProduct(detail *opname.StockOpnameDetail) error
+	FindStockOpNameDetailByID(detailID int) (*opname.StockOpnameDetail, error)
+	UpdateStockOpNameDetail(detail *opname.StockOpnameDetail) error
 	DeleteStockOpNameDetail(detailID int) error
 	// reporting
-	FindByStatusAndDateRange(status model.StockOpnameStatus, startDate, endDate time.Time) ([]model.StockOpname, error)
+	FindByStatusAndDateRange(status opname.StockOpnameStatus, startDate, endDate time.Time, opnameID string) ([]opname.StockOpname, error)
 	GetProducts(ctx context.Context) ([]product.Product, error)
 	FindAllFlags() ([]model.StockDiscrepancyFlag, error)
-	FindAllDiscrepancies() ([]model.StockOpnameDetail, error)
+	FindAllDiscrepancies() ([]opname.StockOpnameDetail, error)
 }
 
 type stockOpnameRepository struct {
@@ -52,18 +53,18 @@ func NewStockOpnameRepository(db *gorm.DB) StockOpnameRepository {
 	return &stockOpnameRepository{db}
 }
 
-func (r *stockOpnameRepository) Create(opname *model.StockOpname) error {
+func (r *stockOpnameRepository) Create(opname *opname.StockOpname) error {
 	return r.db.Create(opname).Error
 }
 
-func (r *stockOpnameRepository) GetAll() ([]model.StockOpname, error) {
-	var opnames []model.StockOpname
+func (r *stockOpnameRepository) GetAll() ([]opname.StockOpname, error) {
+	var opnames []opname.StockOpname
 	err := r.db.Preload("Details").Find(&opnames).Error
 	return opnames, err
 }
 
-func (r *stockOpnameRepository) GetByID(id string) (model.StockOpname, error) {
-	var opname model.StockOpname
+func (r *stockOpnameRepository) GetByID(id string) (opname.StockOpname, error) {
+	var opname opname.StockOpname
 	err := r.db.Preload("Details").Where("opname_id = ?", id).First(&opname).Error
 	return opname, err
 }
@@ -74,11 +75,11 @@ func (r *stockOpnameRepository) FindAllFlags() ([]model.StockDiscrepancyFlag, er
 	return flags, err
 }
 func (r *stockOpnameRepository) Delete(id string) error {
-	return r.db.Delete(&model.StockOpname{}, id).Error
+	return r.db.Delete(&opname.StockOpname{}, id).Error
 }
 func (r *stockOpnameRepository) IsExist(id uint) (bool, error) {
 	var count int64
-	err := r.db.Model(&model.StockOpname{}).Where("id = ?", id).Count(&count).Error
+	err := r.db.Model(&opname.StockOpname{}).Where("id = ?", id).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -88,11 +89,11 @@ func (r *stockOpnameRepository) IsExist(id uint) (bool, error) {
 //fitur opaname
 
 func (r *stockOpnameRepository) GetStockOpnameHistory(ctx context.Context) ([]dto.StockAdjustmentHistory, error) {
-	var adjustments []model.StockAdjustment
+	var adjustments []adjustment.StockAdjustment
 
 	// Ambil data stock_adjustments dengan tipe opname, urut berdasarkan tanggal desc
 	err := r.db.WithContext(ctx).
-		Where("adjustment_type = ?", model.Opname).
+		Where("adjustment_type = ?", adjustment.Opname).
 		Order("adjustment_date DESC").
 		Find(&adjustments).Error
 	if err != nil {
@@ -178,7 +179,7 @@ func (r *stockOpnameRepository) GetStockOpnameHistoryOld(ctx context.Context) ([
 				"stock_adjustments.performed_by",
 		).
 		Joins("JOIN products ON stock_adjustments.product_id = products.id").
-		Where("stock_adjustments.adjustment_type = ?", model.Opname).
+		Where("stock_adjustments.adjustment_type = ?", adjustment.Opname).
 		Order("stock_adjustments.adjustment_date DESC").
 		Scan(&history)
 
@@ -214,7 +215,7 @@ func (r *stockOpnameRepository) GetStockDiscrepancies(ctx context.Context) ([]dt
 				"stock_adjustments.performed_by",
 		).
 		Joins("JOIN products ON stock_adjustments.product_id = products.product_id").
-		Where("stock_adjustments.adjustment_type = ?", model.Opname).
+		Where("stock_adjustments.adjustment_type = ?", adjustment.Opname).
 		Where(
 			"ABS(((stock_adjustments.adjusted_stock - stock_adjustments.previous_stock) * 100.0 / NULLIF(stock_adjustments.previous_stock, 0))) > 10",
 		).
@@ -228,15 +229,24 @@ func (r *stockOpnameRepository) GetStockDiscrepancies(ctx context.Context) ([]dt
 	return discrepancies, nil
 }
 
-//	func (r *stockOpnameRepository) FindAllDiscrepancies() ([]model.StockOpnameDetail, error) {
-//		var details []model.StockOpnameDetail
-//		err := r.db.Find(&details).Error
-//		return details, err
-//	}
-func (r *stockOpnameRepository) FindAllDiscrepancies() ([]model.StockOpnameDetail, error) {
-	var details []model.StockOpnameDetail
+// func (r *stockOpnameRepository) FindAllDiscrepancies() ([]opname.StockOpnameDetail, error) {
+// 	var details []opname.StockOpnameDetail
+
+// 	err := r.db.
+// 		Joins("JOIN stock_opnames ON stock_opnames.opname_id = stock_opname_details.opname_id").
+// 		Where("stock_opnames.status = ?", "completed").
+// 		Find(&details).Error
+
+// 	return details, err
+// }
+
+func (r *stockOpnameRepository) FindAllDiscrepancies() ([]opname.StockOpnameDetail, error) {
+	var details []opname.StockOpnameDetail
 
 	err := r.db.
+		Preload("Product", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name", "code", "barcode", "category_id")
+		}).
 		Joins("JOIN stock_opnames ON stock_opnames.opname_id = stock_opname_details.opname_id").
 		Where("stock_opnames.status = ?", "completed").
 		Find(&details).Error
@@ -244,7 +254,7 @@ func (r *stockOpnameRepository) FindAllDiscrepancies() ([]model.StockOpnameDetai
 	return details, err
 }
 
-func (r *stockOpnameRepository) AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*model.StockAdjustment, error) {
+func (r *stockOpnameRepository) AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*adjustment.StockAdjustment, error) {
 	// Dapatkan stok saat ini
 	var productStock model.ProductStock
 	if err := r.db.WithContext(ctx).Where("product_id = ?", productID).First(&productStock).Error; err != nil {
@@ -252,12 +262,12 @@ func (r *stockOpnameRepository) AdjustProductStock(ctx context.Context, productI
 	}
 
 	// Buat penyesuaian stok
-	adjustment := model.StockAdjustment{
+	adjustment := adjustment.StockAdjustment{
 		AdjustmentID:   generateAdjustmentID(), // Implementasi fungsi ini sesuai kebutuhan
 		ProductID:      productID,
 		PreviousStock:  productStock.CurrentStock,
 		AdjustedStock:  req.ActualStock,
-		AdjustmentType: model.Opname,
+		AdjustmentType: adjustment.Opname,
 		ReferenceID:    "", // Bisa diisi dengan ID opname jika perlu
 		AdjustmentNote: req.AdjustmentNote,
 		AdjustmentDate: req.OpnameDate,
@@ -272,7 +282,7 @@ func (r *stockOpnameRepository) AdjustProductStock(ctx context.Context, productI
 //	func (r *stockOpnameRepository) CreateStockAdjustment(ctx context.Context, adjustment model.StockAdjustment) error {
 //		return r.db.WithContext(ctx).Create(&adjustment).Error
 //	}
-func (r *stockOpnameRepository) CreateStockAdjustment(tx *gorm.DB, adjustment *model.StockAdjustment) error {
+func (r *stockOpnameRepository) CreateStockAdjustment(tx *gorm.DB, adjustment *adjustment.StockAdjustment) error {
 	return tx.Create(adjustment).Error
 }
 
@@ -305,21 +315,21 @@ func generateAdjustmentID() string {
 //	}
 func (r *stockOpnameRepository) UpdateProductStock(tx *gorm.DB, productID string, newStock int) error {
 	result := tx.
-		Model(&model.ProductStock{}).
-		Where("product_id = ?", productID).
+		Model(&product.Product{}).
+		Where("id = ?", productID).
 		Updates(map[string]interface{}{
-			"current_stock": newStock,
+			"stock_buffer": newStock,
 		})
 
 	return result.Error
 }
 
-func (r *stockOpnameRepository) Update(opname *model.StockOpname) error {
+func (r *stockOpnameRepository) Update(opname *opname.StockOpname) error {
 	return r.db.Save(opname).Error
 }
 func (r *stockOpnameRepository) ExistsByOpnameAndProduct(opnameID string, productID string) (bool, error) {
 	var count int64
-	if err := r.db.Model(&model.StockOpnameDetail{}).
+	if err := r.db.Model(&opname.StockOpnameDetail{}).
 		Where("opname_id = ? AND product_id = ?", opnameID, productID).
 		Count(&count).Error; err != nil {
 		return false, err
@@ -327,35 +337,47 @@ func (r *stockOpnameRepository) ExistsByOpnameAndProduct(opnameID string, produc
 	return count > 0, nil
 }
 
-func (r *stockOpnameRepository) CreateStockOpnameDetail(detail *model.StockOpnameDetail) error {
+func (r *stockOpnameRepository) CreateStockOpnameDetail(detail *opname.StockOpnameDetail) error {
 	return r.db.Create(detail).Error
 }
-func (r *stockOpnameRepository) FindByIDWithDetails(opnameID string) (*model.StockOpname, error) {
-	var opname model.StockOpname
+func (r *stockOpnameRepository) PreloadProduct(detail *opname.StockOpnameDetail) error {
+	return r.db.
+		Preload("Product", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "name")
+		}).
+		First(detail, detail.DetailID).Error
+}
+
+func (r *stockOpnameRepository) FindByIDWithDetails(opnameID string) (*opname.StockOpname, error) {
+	var opname opname.StockOpname
 	if err := r.db.Preload("Details").Where("opname_id = ?", opnameID).First(&opname).Error; err != nil {
 		return nil, err
 	}
 	return &opname, nil
 }
-func (r *stockOpnameRepository) UpdateTx(tx *gorm.DB, opname *model.StockOpname) error {
+func (r *stockOpnameRepository) UpdateTx(tx *gorm.DB, opname *opname.StockOpname) error {
 	return tx.Save(opname).Error
 }
-func (r *stockOpnameRepository) FindStockOpNameDetailByID(detailID int) (*model.StockOpnameDetail, error) {
-	var detail model.StockOpnameDetail
+func (r *stockOpnameRepository) FindStockOpNameDetailByID(detailID int) (*opname.StockOpnameDetail, error) {
+	var detail opname.StockOpnameDetail
 	if err := r.db.Where("detail_id = ?", detailID).First(&detail).Error; err != nil {
 		return nil, err
 	}
 	return &detail, nil
 }
-func (r *stockOpnameRepository) UpdateStockOpNameDetail(detail *model.StockOpnameDetail) error {
+func (r *stockOpnameRepository) UpdateStockOpNameDetail(detail *opname.StockOpnameDetail) error {
 	return r.db.Save(detail).Error
 }
 func (r *stockOpnameRepository) DeleteStockOpNameDetail(detailID int) error {
-	return r.db.Where("detail_id = ?", detailID).Delete(&model.StockOpnameDetail{}).Error
+	return r.db.Where("detail_id = ?", detailID).Delete(&opname.StockOpnameDetail{}).Error
 }
-func (r *stockOpnameRepository) FindByStatusAndDateRange(status model.StockOpnameStatus, startDate, endDate time.Time) ([]model.StockOpname, error) {
-	var opnames []model.StockOpname
+func (r *stockOpnameRepository) FindByStatusAndDateRange(status opname.StockOpnameStatus, startDate, endDate time.Time, opnameID string) ([]opname.StockOpname, error) {
+	var opnames []opname.StockOpname
 	query := r.db
+
+	if opnameID != "" {
+		query = query.Where("opname_id = ?", opnameID)
+	}
 
 	if status != "" {
 		query = query.Where("status = ?", status)
@@ -369,10 +391,18 @@ func (r *stockOpnameRepository) FindByStatusAndDateRange(status model.StockOpnam
 		query = query.Where("opname_date <= ?", endDate)
 	}
 
-	if err := query.Order("opname_date DESC").Find(&opnames).Error; err != nil {
+	// if err := query.Order("opname_date DESC").Find(&opnames).Error; err != nil {
+	// 	return nil, err
+	// }
+
+	// 👇 Ini kuncinya!
+	if err := query.
+		Preload("Details").
+		Preload("Details.Product").
+		Order("opname_date DESC").
+		Find(&opnames).Error; err != nil {
 		return nil, err
 	}
-
 	return opnames, nil
 }
 func (r *stockOpnameRepository) GetProducts(ctx context.Context) ([]product.Product, error) {

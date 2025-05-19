@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"go-gin-auth/config"
 	"go-gin-auth/dto"
+	"go-gin-auth/internal/adjustment"
+	"go-gin-auth/internal/opname"
 	"go-gin-auth/internal/product"
-	"go-gin-auth/model"
 	"go-gin-auth/repository"
+	"go-gin-auth/utils"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,32 +19,32 @@ import (
 )
 
 type StockOpnameService interface {
-	Create(opname *model.StockOpname) error
-	GetAll() ([]model.StockOpname, error)
-	GetByID(id uint) (model.StockOpname, error)
+	Create(opname *opname.StockOpname) error
+	GetAll() ([]opname.StockOpname, error)
+	GetByID(id uint) (opname.StockOpname, error)
 	Delete(id uint) error
 	IsExist(id uint) (bool, error)
 	GetStockOpnameHistory(ctx context.Context) ([]dto.StockAdjustmentHistory, error)
 	GetStockDiscrepancies(ctx context.Context) ([]dto.StockDiscrepancy, error)
-	AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*model.StockAdjustment, error)
+	AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*adjustment.StockAdjustment, error)
 	//Draft operations
-	CreateDraft(createdBy string, opnameDate time.Time, notes string) (*model.StockOpname, error)
-	GetDraft(opnameID string) (*model.StockOpname, error)
-	UpdateDraft(opnameID string, opnameDate time.Time, notes string) (*model.StockOpname, error)
+	CreateDraft(createdBy string, opnameDate dto.DateOnly, notes string) (*opname.StockOpname, error)
+	GetDraft(opnameID string) (*opname.StockOpname, error)
+	UpdateDraft(opnameID string, opnameDate dto.DateOnly, notes string) (*opname.StockOpname, error)
 	DeleteDraft(opnameID string) error
 
-	AddProductToDraft(opnameID string, productID string) (*model.StockOpnameDetail, error)
+	AddProductToDraft(opnameID string, productID string) (*opname.StockOpnameDetail, error)
 	RemoveProductFromDraft(opnameID string, detailID int) error
 	// Process operations
-	StartOpname(opnameID string, startedBy string) (*model.StockOpname, error)
-	RecordActualStock(detailID int, actualStock int, performedBy string, note string) (*model.StockOpnameDetail, error)
+	StartOpname(opnameID string, startedBy string) (*opname.StockOpname, error)
+	RecordActualStock(detailID int, actualStock int, performedBy string, note string) (*opname.StockOpnameDetail, error)
 	// Completion operations
-	CompleteOpname(opnameID string, completedBy string) (*model.StockOpname, error)
-	CancelOpname(opnameID string, canceledBy string) (*model.StockOpname, error)
+	CompleteOpname(opnameID string, completedBy string) (*opname.StockOpname, error)
+	CancelOpname(opnameID string, canceledBy string) (*opname.StockOpname, error)
 
 	// Reporting
-	GetOpnameDetails(opnameID string) (*model.StockOpname, error)
-	GetOpnameList(status model.StockOpnameStatus, startDate, endDate time.Time) ([]model.StockOpname, error)
+	GetOpnameDetails(opnameID string) (*opname.StockOpname, error)
+	GetOpnameList(status opname.StockOpnameStatus, startDate, endDate time.Time, opnameID string) ([]dto.StockOpnameResponse, error)
 	GetProducts(ctx context.Context) ([]dto.ProductStockResponse, error)
 }
 
@@ -53,7 +56,7 @@ func NewStockOpnameService(r repository.StockOpnameRepository) StockOpnameServic
 	return &stockOpnameService{r}
 }
 
-func (s *stockOpnameService) Create(opname *model.StockOpname) error {
+func (s *stockOpnameService) Create(opname *opname.StockOpname) error {
 	db := config.DB
 	for i := range opname.Details {
 		d := &opname.Details[i]
@@ -75,11 +78,11 @@ func (s *stockOpnameService) Create(opname *model.StockOpname) error {
 	return s.repo.Create(opname)
 }
 
-func (s *stockOpnameService) GetAll() ([]model.StockOpname, error) {
+func (s *stockOpnameService) GetAll() ([]opname.StockOpname, error) {
 	return s.repo.GetAll()
 }
 
-func (s *stockOpnameService) GetByID(id uint) (model.StockOpname, error) {
+func (s *stockOpnameService) GetByID(id uint) (opname.StockOpname, error) {
 	return s.repo.GetByID(fmt.Sprintf("%d", id))
 }
 
@@ -98,7 +101,6 @@ func (s *stockOpnameService) GetStockOpnameHistory(ctx context.Context) ([]dto.S
 
 func (s *stockOpnameService) GetStockDiscrepancies(ctx context.Context) ([]dto.StockDiscrepancy, error) {
 	details, err := s.repo.FindAllDiscrepancies()
-	fmt.Println("details", details)
 	if err != nil {
 		return nil, err
 	}
@@ -122,9 +124,9 @@ func (s *stockOpnameService) GetStockDiscrepancies(ctx context.Context) ([]dto.S
 		}
 
 		result = append(result, dto.StockDiscrepancy{
-			ProductID: detail.ProductID,
-			// Name:                  detail.ProductName,
-			// Category:              detail.Category,
+			ProductID:             strconv.FormatUint(uint64(detail.ProductID), 10),
+			Name:                  detail.Product.Name,
+			Category:              strconv.FormatUint(uint64(detail.Product.CategoryID), 10),
 			PreviousStock:         detail.SystemStock,
 			ActualStock:           detail.ActualStock,
 			Discrepancy:           detail.Discrepancy,
@@ -138,7 +140,7 @@ func (s *stockOpnameService) GetStockDiscrepancies(ctx context.Context) ([]dto.S
 	return result, nil
 }
 
-func (s *stockOpnameService) AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*model.StockAdjustment, error) {
+func (s *stockOpnameService) AdjustProductStock(ctx context.Context, productID string, req dto.StockAdjustmentRequest) (*adjustment.StockAdjustment, error) {
 	// Periksa apakah produk ada
 	db := config.DB
 	var product product.Product
@@ -152,7 +154,7 @@ func (s *stockOpnameService) AdjustProductStock(ctx context.Context, productID s
 	// }
 
 	// Jalankan dalam transaksi database
-	var adjustment *model.StockAdjustment
+	var adjustment *adjustment.StockAdjustment
 
 	err := db.Transaction(func(tx *gorm.DB) error {
 		// Buat context baru dengan tx
@@ -190,17 +192,18 @@ func (s *stockOpnameService) AdjustProductStock(ctx context.Context, productID s
 	return adjustment, nil
 }
 
-func (s *stockOpnameService) CreateDraft(createdBy string, opnameDate time.Time, notes string) (*model.StockOpname, error) {
+func (s *stockOpnameService) CreateDraft(createdBy string, opnameDate dto.DateOnly, notes string) (*opname.StockOpname, error) {
 	opnameID := fmt.Sprintf("OPN-%s", uuid.New().String()[:8])
 
-	opname := &model.StockOpname{
+	opname := &opname.StockOpname{
 		OpnameID:   opnameID,
-		OpnameDate: opnameDate,
-		Status:     model.Draft,
+		OpnameDate: opnameDate.Local(),
+		Status:     opname.Draft,
 		Notes:      notes,
 		CreatedBy:  createdBy,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
+		Jenis:      "Regular",
 	}
 
 	if err := s.repo.Create(opname); err != nil {
@@ -211,67 +214,68 @@ func (s *stockOpnameService) CreateDraft(createdBy string, opnameDate time.Time,
 }
 
 // GetDraft retrieves a draft stock opname by ID
-func (s *stockOpnameService) GetDraft(opnameID string) (*model.StockOpname, error) {
-	opname, err := s.repo.GetByID(opnameID)
+func (s *stockOpnameService) GetDraft(opnameID string) (*opname.StockOpname, error) {
+	data, err := s.repo.GetByID(opnameID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Only draft status can be retrieved through this method
-	if opname.Status != model.Draft {
+	if data.Status != opname.Draft {
 		return nil, errors.New("stock opname is not in draft status")
 	}
 
-	return &opname, nil
+	return &data, nil
 }
 
 // UpdateDraft updates a draft stock opname
-func (s *stockOpnameService) UpdateDraft(opnameID string, opnameDate time.Time, notes string) (*model.StockOpname, error) {
-	opname, err := s.repo.GetByID(opnameID)
+func (s *stockOpnameService) UpdateDraft(opnameID string, opnameDate dto.DateOnly, notes string) (*opname.StockOpname, error) {
+	data, err := s.repo.GetByID(opnameID)
 	if err != nil {
 		return nil, err
 	}
 
-	if opname.Status != model.Draft {
+	if data.Status != opname.Draft {
 		return nil, errors.New("only draft stock opname can be updated")
 	}
 
-	opname.OpnameDate = opnameDate
-	opname.Notes = notes
-	opname.UpdatedAt = time.Now()
+	data.OpnameDate = opnameDate.Local()
+	data.Notes = notes
+	data.UpdatedAt = time.Now()
 
-	if err := s.repo.Update(&opname); err != nil {
+	if err := s.repo.Update(&data); err != nil {
 		return nil, err
 	}
 
-	return &opname, nil
+	return &data, nil
 }
 
 // DeleteDraft deletes a draft stock opname
 func (s *stockOpnameService) DeleteDraft(opnameID string) error {
-	opname, err := s.repo.GetByID(opnameID)
+	data, err := s.repo.GetByID(opnameID)
 	if err != nil {
 		return err
 	}
 
-	if opname.Status != model.Draft {
+	if data.Status != opname.Draft {
 		return errors.New("only draft stock opname can be deleted")
 	}
 
 	return s.repo.Delete(opnameID)
 }
 
-func (s *stockOpnameService) AddProductToDraft(opnameID string, productID string) (*model.StockOpnameDetail, error) {
+func (s *stockOpnameService) AddProductToDraft(opnameID string, productID string) (*opname.StockOpnameDetail, error) {
 	// Check if opname exists and is in draft status
-	opname, err := s.repo.GetByID(opnameID)
-	fmt.Print("opname", opname.Notes)
+	data, err := s.repo.GetByID(opnameID)
 	if err != nil {
 		return nil, err
 	}
 
-	if opname.Status != model.Draft {
-		return nil, errors.New("can only add products to draft stock opname")
-	}
+	// disable
+	// if data.Status != opname.Draft {
+	// 	return nil, errors.New("can only add products to draft stock opname")
+	// }
+
 	db := config.DB
 	var product product.Product
 
@@ -294,13 +298,17 @@ func (s *stockOpnameService) AddProductToDraft(opnameID string, productID string
 		return nil, errors.New("product already exists in this stock opname")
 	}
 
+	productIDUint, err := utils.ConvertProductID(productID)
+	if err != nil {
+		return nil, errors.New(err.Error())
+	}
 	// Create new detail
-	detail := &model.StockOpnameDetail{
+	detail := &opname.StockOpnameDetail{
 		OpnameID:    opnameID,
-		ProductID:   productID,
+		ProductID:   productIDUint,
 		SystemStock: product.StockBuffer, // This needs to be retrieved from the product repository
 		ActualStock: 0,                   // Will be filled during the opname process
-		PerformedBy: opname.CreatedBy,    // Initially set to the creator of the opname
+		PerformedBy: data.CreatedBy,      // Initially set to the creator of the opname
 		PerformedAt: time.Now(),
 	}
 
@@ -311,18 +319,30 @@ func (s *stockOpnameService) AddProductToDraft(opnameID string, productID string
 		return nil, err
 	}
 
+	// // Setelah simpan, ambil ulang dengan relasi Product
+	// if err := s.repo.PreloadProduct(detail); err != nil {
+	// 	return nil, err
+	// }
+
+	// // langsung jalankan program
+	// _, err = s.StartOpname(opnameID, data.CreatedBy)
+
+	// if err != nil {
+	// 	return nil, err
+	// }
+
 	return detail, nil
 }
 
 // RemoveProductFromDraft removes a product from a draft stock opname
 func (s *stockOpnameService) RemoveProductFromDraft(opnameID string, detailID int) error {
 	// Check if opname exists and is in draft status
-	opname, err := s.repo.GetByID(opnameID)
+	data, err := s.repo.GetByID(opnameID)
 	if err != nil {
 		return err
 	}
 
-	if opname.Status != model.Draft {
+	if data.Status != opname.Draft {
 		return errors.New("can only remove products from draft stock opname")
 	}
 
@@ -341,7 +361,7 @@ func (s *stockOpnameService) RemoveProductFromDraft(opnameID string, detailID in
 }
 
 // StartOpname starts the stock opname process
-func (s *stockOpnameService) StartOpname(opnameID string, startedBy string) (*model.StockOpname, error) {
+func (s *stockOpnameService) StartOpname(opnameID string, startedBy string) (*opname.StockOpname, error) {
 	// Begin transaction
 	tx := config.DB.Begin()
 
@@ -352,28 +372,28 @@ func (s *stockOpnameService) StartOpname(opnameID string, startedBy string) (*mo
 	}()
 
 	// Get opname with details
-	opname, err := s.repo.FindByIDWithDetails(opnameID)
+	data, err := s.repo.FindByIDWithDetails(opnameID)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
-	if opname.Status != model.Draft {
+	if data.Status != opname.Draft {
 		tx.Rollback()
 		return nil, errors.New("only draft stock opname can be started")
 	}
 
-	if len(opname.Details) == 0 {
+	if len(data.Details) == 0 {
 		tx.Rollback()
 		return nil, errors.New("cannot start stock opname with no products")
 	}
 
 	// Update status to in progress
-	opname.Status = model.InProgress
-	opname.StartTime = time.Now()
-	opname.UpdatedAt = time.Now()
+	data.Status = opname.InProgress
+	data.StartTime = time.Now()
+	data.UpdatedAt = time.Now()
 
-	if err := s.repo.UpdateTx(tx, opname); err != nil {
+	if err := s.repo.UpdateTx(tx, data); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -382,11 +402,11 @@ func (s *stockOpnameService) StartOpname(opnameID string, startedBy string) (*mo
 		return nil, err
 	}
 
-	return opname, nil
+	return data, nil
 }
 
 // RecordActualStock records the actual stock count for a product
-func (s *stockOpnameService) RecordActualStock(detailID int, actualStock int, performedBy string, note string) (*model.StockOpnameDetail, error) {
+func (s *stockOpnameService) RecordActualStock(detailID int, actualStock int, performedBy string, note string) (*opname.StockOpnameDetail, error) {
 	// Get detail
 	detail, err := s.repo.FindStockOpNameDetailByID(detailID)
 	if err != nil {
@@ -394,14 +414,14 @@ func (s *stockOpnameService) RecordActualStock(detailID int, actualStock int, pe
 	}
 
 	// Get opname to check status
-	opname, err := s.repo.GetByID(detail.OpnameID)
-	if err != nil {
-		return nil, err
-	}
+	// data, err := s.repo.GetByID(detail.OpnameID)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	if opname.Status != model.InProgress {
-		return nil, errors.New("can only record actual stock for in-progress stock opname")
-	}
+	// if data.Status != opname.InProgress {
+	// 	return nil, errors.New("can only record actual stock for in-progress stock opname")
+	// }
 
 	// Update detail
 	detail.ActualStock = actualStock
@@ -419,7 +439,7 @@ func (s *stockOpnameService) RecordActualStock(detailID int, actualStock int, pe
 }
 
 // CompleteOpname completes the stock opname process
-func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string) (*model.StockOpname, error) {
+func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string) (*opname.StockOpname, error) {
 	// Begin transaction
 	tx := config.DB.Begin()
 	defer func() {
@@ -429,19 +449,19 @@ func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string)
 	}()
 
 	// Get opname with details
-	opname, err := s.repo.FindByIDWithDetails(opnameID)
+	data, err := s.repo.FindByIDWithDetails(opnameID)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
 	}
 
-	if opname.Status != model.InProgress {
+	if data.Status != opname.InProgress {
 		tx.Rollback()
 		return nil, errors.New("only in-progress stock opname can be completed")
 	}
 
 	// Check if all products have been counted
-	for _, detail := range opname.Details {
+	for _, detail := range data.Details {
 		// if detail was added but never counted (actualStock is 0)
 		if detail.ActualStock == 0 && detail.AdjustmentNote == "" {
 			tx.Rollback()
@@ -450,18 +470,18 @@ func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string)
 	}
 
 	// Create stock adjustments for each product
-	for _, detail := range opname.Details {
+	for _, detail := range data.Details {
 		// Calculate discrepancy
 		detail.CalculateDiscrepancy()
 
 		// Only create adjustment if there's a discrepancy
 		if detail.Discrepancy != 0 {
-			adjustment := &model.StockAdjustment{
+			adjustment := &adjustment.StockAdjustment{
 				AdjustmentID:   fmt.Sprintf("ADJ-%s", uuid.New().String()[:8]),
-				ProductID:      detail.ProductID,
+				ProductID:      strconv.FormatUint(uint64(detail.ProductID), 10),
 				PreviousStock:  detail.SystemStock,
 				AdjustedStock:  detail.ActualStock,
-				AdjustmentType: model.Opname,
+				AdjustmentType: adjustment.Opname,
 				ReferenceID:    opnameID,
 				AdjustmentNote: detail.AdjustmentNote,
 				AdjustmentDate: time.Now(),
@@ -475,8 +495,8 @@ func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string)
 				return nil, err
 			}
 
-			// Update product stock
-			if err := s.repo.UpdateProductStock(tx, detail.ProductID, detail.ActualStock); err != nil {
+			/// disable dulu Update product stock
+			if err := s.repo.UpdateProductStock(tx, strconv.FormatUint(uint64(detail.ProductID), 10), detail.ActualStock); err != nil {
 				tx.Rollback()
 				return nil, err
 			}
@@ -484,11 +504,12 @@ func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string)
 	}
 
 	// Update opname status
-	opname.Status = model.Completed
-	opname.EndTime = time.Now()
-	opname.UpdatedAt = time.Now()
+	data.Status = opname.Completed
+	data.FlagActive = false
+	data.EndTime = time.Now()
+	data.UpdatedAt = time.Now()
 
-	if err := s.repo.UpdateTx(tx, opname); err != nil {
+	if err := s.repo.UpdateTx(tx, data); err != nil {
 		tx.Rollback()
 		return nil, err
 	}
@@ -497,36 +518,37 @@ func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string)
 		return nil, err
 	}
 
-	return opname, nil
+	return data, nil
 }
 
 // CancelOpname cancels the stock opname process
-func (s *stockOpnameService) CancelOpname(opnameID string, canceledBy string) (*model.StockOpname, error) {
+func (s *stockOpnameService) CancelOpname(opnameID string, canceledBy string) (*opname.StockOpname, error) {
 	// Get opname
-	opname, err := s.repo.GetByID(opnameID)
+	data, err := s.repo.GetByID(opnameID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Only draft or in-progress can be canceled
-	if opname.Status != model.Draft && opname.Status != model.InProgress {
+	if data.Status != opname.Draft && data.Status != opname.InProgress {
 		return nil, errors.New("only draft or in-progress stock opname can be canceled")
 	}
 
 	// Update status to canceled
-	opname.Status = model.Canceled
-	opname.EndTime = time.Now()
-	opname.UpdatedAt = time.Now()
+	data.Status = opname.Canceled
+	data.FlagActive = false
+	data.EndTime = time.Now()
+	data.UpdatedAt = time.Now()
 
-	if err := s.repo.Update(&opname); err != nil {
+	if err := s.repo.Update(&data); err != nil {
 		return nil, err
 	}
 
-	return &opname, nil
+	return &data, nil
 }
 
 // GetOpnameDetails gets detailed information for a stock opname
-func (s *stockOpnameService) GetOpnameDetails(opnameID string) (*model.StockOpname, error) {
+func (s *stockOpnameService) GetOpnameDetails(opnameID string) (*opname.StockOpname, error) {
 	opname, err := s.repo.FindByIDWithDetails(opnameID)
 	if err != nil {
 		return nil, err
@@ -541,8 +563,49 @@ func (s *stockOpnameService) GetOpnameDetails(opnameID string) (*model.StockOpna
 }
 
 // GetOpnameList gets a list of stock opnames by status and date range
-func (s *stockOpnameService) GetOpnameList(status model.StockOpnameStatus, startDate, endDate time.Time) ([]model.StockOpname, error) {
-	return s.repo.FindByStatusAndDateRange(status, startDate, endDate)
+func (s *stockOpnameService) GetOpnameList(status opname.StockOpnameStatus, startDate, endDate time.Time, opnameID string) ([]dto.StockOpnameResponse, error) {
+	data, err := s.repo.FindByStatusAndDateRange(status, startDate, endDate, opnameID)
+	if err != nil {
+		return nil, err
+
+	}
+	var responses []dto.StockOpnameResponse
+	for _, o := range data {
+		var detailResponses []dto.StockOpnameDetailResponse
+		for _, d := range o.Details {
+			detailResponses = append(detailResponses, dto.StockOpnameDetailResponse{
+				ID:                     uint(d.DetailID),
+				QtySystem:              d.SystemStock,
+				QtyReal:                d.ActualStock,
+				Discrepancy:            d.Discrepancy,
+				Discrepancy_percentage: int(d.DiscrepancyPercentage),
+				Adjustment_note:        d.AdjustmentNote,
+				Performed_by:           d.PerformedBy,
+				Performed_at:           d.PerformedAt,
+				Product: dto.ProductSimple{
+					ID:   d.Product.ID,
+					Name: d.Product.Name,
+					// Code:       d.Product.Code,
+					// Barcode:    d.Product.Barcode,
+					// CategoryID: d.Product.CategoryID,
+				},
+			})
+		}
+
+		responses = append(responses, dto.StockOpnameResponse{
+			OpnameId:        o.OpnameID,
+			OpnameDate:      o.OpnameDate,
+			StartTime:       o.StartTime,
+			EndTime:         o.EndTime,
+			Status:          string(o.Status),
+			Notes:           o.Notes,
+			JenisStokOpname: string(o.Jenis),
+			FlagActive:      o.FlagActive,
+			CreatedBy:       o.CreatedBy,
+			Details:         detailResponses,
+		})
+	}
+	return responses, nil
 }
 func (s *stockOpnameService) GetProducts(ctx context.Context) ([]dto.ProductStockResponse, error) {
 	products, err := s.repo.GetProducts(ctx)

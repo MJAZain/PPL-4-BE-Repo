@@ -3,8 +3,8 @@ package controller
 import (
 	"fmt"
 	"go-gin-auth/dto"
+	"go-gin-auth/internal/opname"
 	"go-gin-auth/mapper"
-	"go-gin-auth/model"
 	"go-gin-auth/service"
 	"go-gin-auth/utils"
 	"net/http"
@@ -171,7 +171,7 @@ func (h *StockOpnameController) CreateDraft(ctx *gin.Context) {
 		return
 	}
 	fmt.Println("Request payload:", utils.GetCurrentUserID(ctx))
-	opname, err := h.service.CreateDraft(strconv.FormatUint(uint64(utils.GetCurrentUserID(ctx)), 10), req.OpnameDate, req.Notes)
+	opname, err := h.service.CreateDraft(strconv.FormatUint(uint64(utils.GetCurrentUserID(ctx)), 10), req.Tanggal, req.Catatan)
 	if err != nil {
 		utils.Respond(ctx, http.StatusInternalServerError, "Error", err.Error(), nil)
 		return
@@ -194,7 +194,12 @@ func (h *StockOpnameController) AddProductToDraft(ctx *gin.Context) {
 		utils.Respond(ctx, http.StatusInternalServerError, "Error", err.Error(), nil)
 		return
 	}
-	utils.Respond(ctx, http.StatusOK, "Success", nil, detail)
+	response := map[string]interface{}{
+		"opname_id":  detail.OpnameID,
+		"detail_id":  detail.DetailID,
+		"product_id": detail.ProductID,
+	}
+	utils.Respond(ctx, http.StatusOK, "Success", nil, response)
 }
 
 // StartOpname starts the stock opname process
@@ -207,7 +212,14 @@ func (h *StockOpnameController) StartOpname(ctx *gin.Context) {
 		return
 	}
 
-	utils.Respond(ctx, http.StatusOK, "Success", nil, opname)
+	response := map[string]interface{}{
+		"opname_id":   opname.OpnameID,
+		"opname_date": opname.OpnameDate,
+		"start_time":  opname.StartTime,
+		"end_time":    opname.EndTime,
+		"status":      opname.Status,
+	}
+	utils.Respond(ctx, http.StatusOK, "Success", nil, response)
 }
 
 // CompleteOpname completes the stock opname process
@@ -219,8 +231,14 @@ func (h *StockOpnameController) CompleteOpname(ctx *gin.Context) {
 		utils.Respond(ctx, http.StatusInternalServerError, "Error", err.Error(), nil)
 		return
 	}
-
-	utils.Respond(ctx, http.StatusOK, "Success", nil, opname)
+	response := map[string]interface{}{
+		"opname_id":   opname.OpnameID,
+		"opname_date": opname.OpnameDate,
+		"start_time":  opname.StartTime,
+		"end_time":    opname.EndTime,
+		"status":      opname.Status,
+	}
+	utils.Respond(ctx, http.StatusOK, "Success", nil, response)
 }
 
 // RecordActualStock records the actual stock count for a product
@@ -245,7 +263,17 @@ func (h *StockOpnameController) RecordActualStock(ctx *gin.Context) {
 		return
 	}
 
-	utils.Respond(ctx, http.StatusOK, "Success", nil, detail)
+	response := map[string]interface{}{
+		"detail_id":              detail.DetailID,
+		"opname_id":              detail.OpnameID,
+		"product_id":             detail.ProductID,
+		"system_stock":           detail.SystemStock,
+		"actual_stock":           detail.ActualStock,
+		"discrepancy":            detail.Discrepancy,
+		"discrepancy_percentage": detail.DiscrepancyPercentage,
+		"adjustment_note":        detail.AdjustmentNote,
+	}
+	utils.Respond(ctx, http.StatusOK, "Success", nil, response)
 }
 
 // GetDraft retrieves a draft stock opname
@@ -270,7 +298,7 @@ func (h *StockOpnameController) UpdateDraft(c *gin.Context) {
 		return
 	}
 
-	opname, err := h.service.UpdateDraft(opnameID, req.OpnameDate, req.Notes)
+	opname, err := h.service.UpdateDraft(opnameID, req.Tanggal, req.Catatan)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, "Error", err.Error(), nil)
 		return
@@ -337,13 +365,14 @@ func (h *StockOpnameController) GetOpnameDetails(c *gin.Context) {
 
 // GetOpnameList gets a list of stock opnames by status and date range
 func (h *StockOpnameController) GetOpnameList(c *gin.Context) {
+	opnameIdParam := c.Query("opname_id")
 	statusParam := c.Query("status")
 	startDateStr := c.Query("start_date")
 	endDateStr := c.Query("end_date")
 
-	var status model.StockOpnameStatus
+	var status opname.StockOpnameStatus
 	if statusParam != "" {
-		status = model.StockOpnameStatus(statusParam)
+		status = opname.StockOpnameStatus(statusParam)
 	}
 
 	var startDate, endDate time.Time
@@ -367,7 +396,7 @@ func (h *StockOpnameController) GetOpnameList(c *gin.Context) {
 		endDate = endDate.Add(24*time.Hour - time.Second)
 	}
 
-	opnames, err := h.service.GetOpnameList(status, startDate, endDate)
+	opnames, err := h.service.GetOpnameList(status, startDate, endDate, opnameIdParam)
 	if err != nil {
 		utils.Respond(c, http.StatusInternalServerError, "Error", err.Error(), nil)
 		return

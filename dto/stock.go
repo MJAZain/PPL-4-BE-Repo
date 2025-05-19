@@ -56,3 +56,36 @@ type UnitSimpleDTO struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
 }
+
+type ProductSimple struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+	// Code       string `json:"code"`
+	// Barcode    string `json:"barcode"`
+	// CategoryID uint   `json:"category_id"`
+}
+
+type StockOpnameDetailResponse struct {
+	ID                     uint          `json:"detail_id"`
+	QtySystem              int           `json:"system_stock"`
+	QtyReal                int           `json:"actual_stock"`
+	Discrepancy            int           `json:"discrepancy"`
+	Discrepancy_percentage int           `json:"discrepancy_percentage"`
+	Adjustment_note        string        `json:"adjustment_note"`
+	Performed_by           string        `json:"performed_by"`
+	Performed_at           time.Time     `json:"performed_at"`
+	Product                ProductSimple `json:"product"`
+}
+
+type StockOpnameResponse struct {
+	OpnameId        string                      `json:"opname_id"`
+	OpnameDate      time.Time                   `json:"opname_date"`
+	StartTime       time.Time                   `json:"start_time"`
+	EndTime         time.Time                   `json:"end_time"`
+	Status          string                      `json:"status"`
+	Notes           string                      `json:"notes"`
+	JenisStokOpname string                      `json:"jenis_stok_opname"`
+	FlagActive      bool                        `json:"FlagActive"`
+	CreatedBy       string                      `json:"created_by"`
+	Details         []StockOpnameDetailResponse `json:"details"`
+}

@@ -1,6 +1,8 @@
-package model
+package adjustment
 
-import "time"
+import (
+	"time"
+)
 
 type AdjustmentType string
 
@@ -23,7 +25,7 @@ type StockAdjustment struct {
 	AdjustmentNote     string         `json:"adjustment_note"`
 	AdjustmentDate     time.Time      `json:"adjustment_date" gorm:"autoCreateTime"`
 	PerformedBy        string         `json:"performed_by" gorm:"not null"`
-	//Product            Product        `json:"product" gorm:"foreignKey:ProductID"`
+	//Product            product.Product `json:"product" gorm:"foreignKey:ProductID"`
 }
 
 func (a *StockAdjustment) CalculateAdjustmentQuantity() {
