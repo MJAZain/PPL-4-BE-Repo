@@ -3,8 +3,11 @@ package product
 import (
 	"errors"
 	"go-gin-auth/config"
+	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
+	storagelocation "go-gin-auth/internal/storage_location"
 	"go-gin-auth/internal/unit"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -33,6 +36,16 @@ func (r *ProductRepository) GetProductByID(id uint) (Product, error) {
 		product.Unit = unit
 	}
 
+	var storageLocation storagelocation.StorageLocation
+	if err := r.db.First(&storageLocation, product.StorageLocationID).Error; err == nil {
+		product.StorageLocation = storageLocation
+	}
+
+	var brand brand.Brand
+	if err := r.db.First(&brand, product.BrandID).Error; err == nil {
+		product.Brand = brand
+	}
+
 	return product, nil
 }
 
@@ -52,16 +65,23 @@ func (r *ProductRepository) GetProducts() ([]Product, error) {
 	if err != nil {
 		return products, errors.New("failed to retrieve products")
 	}
-	var category category.Category
 	for i := range products {
+		var category category.Category
 		if err := r.db.First(&category, products[i].CategoryID).Error; err == nil {
 			products[i].Category = category
 		}
-	}
-	var unit unit.Unit
-	for i := range products {
+		var unit unit.Unit
 		if err := r.db.First(&unit, products[i].UnitID).Error; err == nil {
 			products[i].Unit = unit
+		}
+		var storageLocation storagelocation.StorageLocation
+		log.Println("Retrieving storage location for product:", products[i].StorageLocationID)
+		if err := r.db.First(&storageLocation, products[i].StorageLocationID).Error; err == nil {
+			products[i].StorageLocation = storageLocation
+		}
+		var brand brand.Brand
+		if err := r.db.First(&brand, products[i].BrandID).Error; err == nil {
+			products[i].Brand = brand
 		}
 	}
 	return products, nil

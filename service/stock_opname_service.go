@@ -619,7 +619,7 @@ func (s *stockOpnameService) GetProducts(ctx context.Context) ([]dto.ProductStoc
 			Name:            p.Name,
 			Code:            p.Code,
 			StockBuffer:     p.StockBuffer,
-			StorageLocation: p.StorageLocation,
+			StorageLocation: p.StorageLocation.Name,
 			Category: dto.CategorySimpleDTO{
 				ID:   p.Category.ID,
 				Name: p.Category.Name,

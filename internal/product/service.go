@@ -2,21 +2,27 @@ package product
 
 import (
 	"errors"
+	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
+	storagelocation "go-gin-auth/internal/storage_location"
 	"go-gin-auth/internal/unit"
 )
 
 type ProductService struct {
-	productRepo  ProductRepository
-	categoryRepo category.CategoryRepository
-	unitRepo     unit.UnitRepository
+	productRepo         ProductRepository
+	categoryRepo        category.CategoryRepository
+	unitRepo            unit.UnitRepository
+	brandRepo           brand.BrandRepository
+	storageLocationRepo storagelocation.StorageLocationRepository
 }
 
 func NewProductService() *ProductService {
 	return &ProductService{
-		productRepo:  *NewProductRepository(),
-		categoryRepo: category.NewCategoryRepository(),
-		unitRepo:     unit.NewUnitRepository(),
+		productRepo:         *NewProductRepository(),
+		categoryRepo:        category.NewCategoryRepository(),
+		unitRepo:            unit.NewUnitRepository(),
+		brandRepo:           brand.NewBrandRepository(),
+		storageLocationRepo: storagelocation.NewStorageLocationRepository(),
 	}
 }
 
@@ -37,6 +43,14 @@ func (s *ProductService) CreateProduct(product Product) (Product, error) {
 		return product, errors.New("unit not found")
 	}
 
+	if _, err := s.brandRepo.GetBrandByID(product.BrandID); err != nil {
+		return product, errors.New("brand not found")
+	}
+
+	if _, err := s.storageLocationRepo.GetStorageLocationByID(product.StorageLocationID); err != nil {
+		return product, errors.New("storage location not found")
+	}
+
 	if err := validateProductFields(product); err != nil {
 		return product, err
 	}
@@ -51,6 +65,14 @@ func (s *ProductService) UpdateProduct(id uint, product Product) (Product, error
 
 	if _, err := s.unitRepo.GetUnitByID(product.UnitID); err != nil {
 		return product, errors.New("unit not found")
+	}
+
+	if _, err := s.brandRepo.GetBrandByID(product.BrandID); err != nil {
+		return product, errors.New("brand not found")
+	}
+
+	if _, err := s.storageLocationRepo.GetStorageLocationByID(product.StorageLocationID); err != nil {
+		return product, errors.New("storage location not found")
 	}
 
 	return s.productRepo.UpdateProduct(id, product)
@@ -69,12 +91,6 @@ func validateProductFields(product Product) error {
 	}
 	if product.Barcode == "" {
 		return errors.New("barcode is required")
-	}
-	if product.StorageLocation == "" {
-		return errors.New("storage location is required")
-	}
-	if product.Brand == "" {
-		return errors.New("brand is required")
 	}
 	if product.PackageContent == 0 {
 		return errors.New("package content is required")
