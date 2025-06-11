@@ -5,6 +5,7 @@ import (
 	"go-gin-auth/controller"
 	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
+	"go-gin-auth/internal/doctor"
 	"go-gin-auth/internal/incomingProducts"
 	"go-gin-auth/internal/location"
 	"go-gin-auth/internal/outgoingProducts"
@@ -173,6 +174,7 @@ func SetupRouter() *gin.Engine {
 		brand.BrandRouter(apiAuth)
 		supplier.SupplierRouter(apiAuth)
 		location.LocationRouter(apiAuth)
+		doctor.DoctorRouter(apiAuth)
 	}
 	return r
 }
