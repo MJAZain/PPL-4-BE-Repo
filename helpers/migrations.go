@@ -8,6 +8,7 @@ import (
 	"go-gin-auth/internal/incomingProducts"
 	"go-gin-auth/internal/opname"
 	"go-gin-auth/internal/outgoingProducts"
+	"go-gin-auth/internal/patient"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/stock"
 	storagelocation "go-gin-auth/internal/storage_location"
@@ -39,6 +40,7 @@ func MigrateDB() error {
 		&storagelocation.StorageLocation{},
 		&supplier.Supplier{},
 		&doctor.Doctor{},
+		&patient.Patient{},
 	)
 
 	if err != nil {

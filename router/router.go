@@ -9,6 +9,7 @@ import (
 	"go-gin-auth/internal/incomingProducts"
 	"go-gin-auth/internal/location"
 	"go-gin-auth/internal/outgoingProducts"
+	"go-gin-auth/internal/patient"
 	"go-gin-auth/internal/product"
 	storagelocation "go-gin-auth/internal/storage_location"
 	"go-gin-auth/internal/supplier"
@@ -175,6 +176,7 @@ func SetupRouter() *gin.Engine {
 		supplier.SupplierRouter(apiAuth)
 		location.LocationRouter(apiAuth)
 		doctor.DoctorRouter(apiAuth)
+		patient.PatientRouter(apiAuth)
 	}
 	return r
 }
