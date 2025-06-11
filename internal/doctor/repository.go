@@ -2,7 +2,6 @@ package doctor
 
 import (
 	"errors"
-	"strings"
 
 	"gorm.io/gorm"
 )
@@ -13,7 +12,7 @@ type Repository interface {
 	GetByID(id uint) (*Doctor, error)
 	Update(id uint, doctor *Doctor) (*Doctor, error)
 	Delete(id uint) error
-	FindActiveBySTR(strNumber string) (*Doctor, error)
+	GetAllActive() ([]Doctor, error)
 }
 
 type repository struct {
@@ -24,16 +23,12 @@ func NewRepository(db *gorm.DB) Repository {
 	return &repository{db: db}
 }
 
-func (r *repository) FindActiveBySTR(strNumber string) (*Doctor, error) {
-	if strNumber == "" {
-		return nil, gorm.ErrRecordNotFound
-	}
-	var doctor Doctor
-	err := r.db.Where("LOWER(str_number) = LOWER(?) AND status = ?", strNumber, "Aktif").First(&doctor).Error
-	if err != nil {
+func (r *repository) GetAllActive() ([]Doctor, error) {
+	var doctors []Doctor
+	if err := r.db.Where("status = ?", "Aktif").Find(&doctors).Error; err != nil {
 		return nil, err
 	}
-	return &doctor, nil
+	return doctors, nil
 }
 
 func (r *repository) Create(doctor *Doctor) (*Doctor, error) {
@@ -46,12 +41,6 @@ func (r *repository) Create(doctor *Doctor) (*Doctor, error) {
 func (r *repository) GetAll(searchQuery string) ([]Doctor, error) {
 	var doctors []Doctor
 	query := r.db.Model(&Doctor{})
-
-	if searchQuery != "" {
-		searchPattern := "%" + strings.ToLower(searchQuery) + "%"
-		query = query.Where("LOWER(full_name) LIKE ? OR LOWER(str_number) LIKE ?", searchPattern, searchPattern)
-	}
-
 	if err := query.Order("id DESC").Find(&doctors).Error; err != nil {
 		return nil, err
 	}
