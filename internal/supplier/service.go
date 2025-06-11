@@ -4,12 +4,15 @@ import (
 	"errors"
 	"go-gin-auth/internal/location"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 var (
 	ErrNotFound        = errors.New("supplier tidak ditemukan")
 	ErrInvalidInput    = errors.New("input tidak valid atau tidak lengkap")
 	ErrInvalidLocation = errors.New("kombinasi ID provinsi dan kota/kabupaten tidak valid")
+	ErrNameExists      = errors.New("nama supplier yang aktif sudah ada")
 )
 
 type Service interface {
@@ -41,6 +44,14 @@ func (s *service) CreateSupplier(supplier *Supplier) (*Supplier, error) {
 		return nil, ErrInvalidInput
 	}
 
+	existing, err := s.repository.FindActiveByName(supplier.Name)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if existing != nil {
+		return nil, ErrNameExists
+	}
+
 	valid, _ := s.locationService.ValidateLocation(supplier.ProvinceID, supplier.CityID)
 	if !valid {
 		return nil, ErrInvalidLocation
@@ -62,6 +73,17 @@ func (s *service) CreateSupplier(supplier *Supplier) (*Supplier, error) {
 func (s *service) UpdateSupplier(id uint, supplier *Supplier) (*Supplier, error) {
 	if _, err := s.repository.GetByID(id); err != nil {
 		return nil, err
+	}
+
+	if supplier.Name != "" {
+		supplier.Name = strings.TrimSpace(supplier.Name)
+		existing, err := s.repository.FindActiveByName(supplier.Name)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		if existing != nil && existing.ID != id {
+			return nil, ErrNameExists
+		}
 	}
 
 	if supplier.ProvinceID != "" && supplier.CityID != "" {

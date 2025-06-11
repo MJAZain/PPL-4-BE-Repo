@@ -12,6 +12,7 @@ type Repository interface {
 	GetByID(id uint) (*Supplier, error)
 	Update(id uint, supplier *Supplier) (*Supplier, error)
 	Delete(id uint) error
+	FindActiveByName(name string) (*Supplier, error)
 }
 
 type repository struct {
@@ -71,4 +72,13 @@ func (r *repository) Delete(id uint) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (r *repository) FindActiveByName(name string) (*Supplier, error) {
+	var supplier Supplier
+	err := r.db.Where("name = ? AND status = ?", name, "Aktif").First(&supplier).Error
+	if err != nil {
+		return nil, err
+	}
+	return &supplier, nil
 }

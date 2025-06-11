@@ -21,13 +21,13 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) CreateSupplier(c *gin.Context) {
 	var input Supplier
 	if err := c.ShouldBind(&input); err != nil {
-		utils.Respond(c, http.StatusBadRequest, "Input tidak valid", err, nil)
+		utils.Respond(c, http.StatusBadRequest, "Input tidak valid", err.Error(), nil)
 		return
 	}
 
 	newSupplier, err := h.service.CreateSupplier(&input)
 	if err != nil {
-		utils.Respond(c, http.StatusInternalServerError, "Gagal membuat supplier", err, nil)
+		utils.Respond(c, http.StatusInternalServerError, "Gagal membuat supplier", err.Error(), nil)
 		return
 	}
 
@@ -39,7 +39,7 @@ func (h *Handler) GetAllSuppliers(c *gin.Context) {
 
 	suppliers, err := h.service.GetAllSuppliers(searchQuery)
 	if err != nil {
-		utils.Respond(c, http.StatusInternalServerError, "Gagal mengambil daftar supplier", err, nil)
+		utils.Respond(c, http.StatusInternalServerError, "Gagal mengambil daftar supplier", err.Error(), nil)
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *Handler) GetAllSuppliers(c *gin.Context) {
 func (h *Handler) GetSupplierByID(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
-		utils.Respond(c, http.StatusBadRequest, "Parameter ID tidak valid", nil, nil)
+		utils.Respond(c, http.StatusBadRequest, "Parameter ID tidak valid", err.Error(), nil)
 		return
 	}
 
@@ -71,16 +71,16 @@ func (h *Handler) UpdateSupplier(c *gin.Context) {
 
 	var input Supplier
 	if err := c.ShouldBind(&input); err != nil {
-		utils.Respond(c, http.StatusBadRequest, "Input tidak valid", err, nil)
+		utils.Respond(c, http.StatusBadRequest, "Input tidak valid", err.Error(), nil)
 		return
 	}
 
 	updatedSupplier, err := h.service.UpdateSupplier(uint(id), &input)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			utils.Respond(c, http.StatusNotFound, "Supplier tidak ditemukan", err, nil)
+			utils.Respond(c, http.StatusNotFound, "Supplier tidak ditemukan", err.Error(), nil)
 		} else {
-			utils.Respond(c, http.StatusInternalServerError, "Gagal memperbarui supplier", err, nil)
+			utils.Respond(c, http.StatusInternalServerError, "Gagal memperbarui supplier", err.Error(), nil)
 		}
 		return
 	}
@@ -97,9 +97,9 @@ func (h *Handler) DeleteSupplier(c *gin.Context) {
 
 	if err := h.service.DeleteSupplier(uint(id)); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			utils.Respond(c, http.StatusNotFound, "Supplier tidak ditemukan", err, nil)
+			utils.Respond(c, http.StatusNotFound, "Supplier tidak ditemukan", err.Error(), nil)
 		} else {
-			utils.Respond(c, http.StatusInternalServerError, "Gagal menonaktifkan supplier", err, nil)
+			utils.Respond(c, http.StatusInternalServerError, "Gagal menonaktifkan supplier", err.Error(), nil)
 		}
 		return
 	}
