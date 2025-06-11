@@ -6,9 +6,11 @@ import (
 	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/incomingProducts"
+	"go-gin-auth/internal/location"
 	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/product"
 	storagelocation "go-gin-auth/internal/storage_location"
+	"go-gin-auth/internal/supplier"
 	"go-gin-auth/internal/unit"
 	"go-gin-auth/middleware"
 	"go-gin-auth/repository"
@@ -169,6 +171,8 @@ func SetupRouter() *gin.Engine {
 		apiAuth.Use(middleware.AuthAdminMiddleware())
 		storagelocation.StorageLocationRouter(apiAuth)
 		brand.BrandRouter(apiAuth)
+		supplier.SupplierRouter(apiAuth)
+		location.LocationRouter(apiAuth)
 	}
 	return r
 }
