@@ -6,11 +6,14 @@ import (
 	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/doctor"
+	"go-gin-auth/internal/drug_category"
 	"go-gin-auth/internal/incomingProducts"
 	"go-gin-auth/internal/location"
 	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/patient"
 	"go-gin-auth/internal/product"
+	"go-gin-auth/internal/shift"
+	"go-gin-auth/internal/stock_correction"
 	storagelocation "go-gin-auth/internal/storage_location"
 	"go-gin-auth/internal/supplier"
 	"go-gin-auth/internal/unit"
@@ -177,6 +180,9 @@ func SetupRouter() *gin.Engine {
 		location.LocationRouter(apiAuth)
 		doctor.DoctorRouter(apiAuth)
 		patient.PatientRouter(apiAuth)
+		drug_category.DrugCategoryRouter(apiAuth)
+		shift.ShiftRouter(apiAuth)
+		stock_correction.StockCorrectionRouter(apiAuth)
 	}
 	return r
 }
