@@ -11,6 +11,7 @@ import (
 	"go-gin-auth/internal/location"
 	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/patient"
+	"go-gin-auth/internal/pbf"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/shift"
 	"go-gin-auth/internal/stock_correction"
@@ -183,6 +184,13 @@ func SetupRouter() *gin.Engine {
 		drug_category.DrugCategoryRouter(apiAuth)
 		shift.ShiftRouter(apiAuth)
 		stock_correction.StockCorrectionRouter(apiAuth)
+
+		pbfRouter := api.Group("/incoming-pbf")
+		pbfRouter.Use(middleware.AuthMiddleware()).GET("", pbf.GetAllIncomingPBF)
+		pbfRouter.Use(middleware.AuthMiddleware()).POST("", pbf.CreateIncomingPBF)
+		pbfRouter.Use(middleware.AuthMiddleware()).GET("/:id", pbf.GetIncomingPBFByID)
+		pbfRouter.Use(middleware.AuthMiddleware()).PUT("/:id", pbf.UpdateIncomingPBF)
+		pbfRouter.Use(middleware.AuthMiddleware()).DELETE("/:id", pbf.DeleteIncomingPBF)
 	}
 	return r
 }
