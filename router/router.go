@@ -9,6 +9,7 @@ import (
 	"go-gin-auth/internal/drug_category"
 	"go-gin-auth/internal/incomingProducts"
 	"go-gin-auth/internal/location"
+	"go-gin-auth/internal/nonpbf"
 	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/patient"
 	"go-gin-auth/internal/pbf"
@@ -191,6 +192,17 @@ func SetupRouter() *gin.Engine {
 		pbfRouter.Use(middleware.AuthMiddleware()).GET("/:id", pbf.GetIncomingPBFByID)
 		pbfRouter.Use(middleware.AuthMiddleware()).PUT("/:id", pbf.UpdateIncomingPBF)
 		pbfRouter.Use(middleware.AuthMiddleware()).DELETE("/:id", pbf.DeleteIncomingPBF)
+
+		nonpbfService := nonpbf.NewIncomingNonPBFService(config.DB)
+		nonpbfController := nonpbf.NewIncomingNonPBFController(nonpbfService)
+
+		nonpbfRouter := api.Group("/incoming-nonpbf", middleware.AuthMiddleware())
+		nonpbfRouter.GET("", nonpbfController.GetAll)
+		nonpbfRouter.POST("", nonpbfController.Create)
+		nonpbfRouter.GET("/:id", nonpbfController.GetByID)
+		nonpbfRouter.PUT("/:id", nonpbfController.Update)
+		nonpbfRouter.DELETE("/:id", nonpbfController.Delete)
+
 	}
 	return r
 }

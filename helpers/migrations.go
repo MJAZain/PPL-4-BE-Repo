@@ -7,6 +7,7 @@ import (
 	"go-gin-auth/internal/doctor"
 	"go-gin-auth/internal/drug_category"
 	"go-gin-auth/internal/incomingProducts"
+	"go-gin-auth/internal/nonpbf"
 	"go-gin-auth/internal/opname"
 	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/patient"
@@ -49,6 +50,7 @@ func MigrateDB() error {
 		&shift.Shift{},
 		&stock_correction.StockCorrection{},
 		&pbf.IncomingPBF{}, &pbf.IncomingPBFDetail{},
+		&nonpbf.IncomingNonPBF{}, &nonpbf.IncomingNonPBFDetail{},
 	)
 
 	if err != nil {
