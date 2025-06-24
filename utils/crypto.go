@@ -12,6 +12,12 @@ import (
 
 var encryptionKey = []byte(os.Getenv("ENCRYPTION_KEY"))
 
+func init() {
+	if len(encryptionKey) == 0 {
+		encryptionKey = []byte("my-super-secret-32-byte-key-!!**")
+	}
+}
+
 func Encrypt(plaintext string) (string, error) {
 	if plaintext == "" {
 		return "", nil
