@@ -48,7 +48,7 @@ func GetAllIncomingPBF(c *gin.Context) {
 		return
 	}
 
-	utils.Respond(c, http.StatusOK, "Data retrieved successfully", incomingPBFs, nil)
+	utils.Respond(c, http.StatusOK, "Data retrieved successfully", nil, incomingPBFs)
 }
 func CreateIncomingPBF(c *gin.Context) {
 	var req CreateIncomingPBFRequest
