@@ -12,6 +12,7 @@ import (
 	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/patient"
 	"go-gin-auth/internal/pbf"
+	"go-gin-auth/internal/prescription"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/shift"
 	"go-gin-auth/internal/stock"
@@ -51,6 +52,8 @@ func MigrateDB() error {
 		&stock_correction.StockCorrection{},
 		&pbf.IncomingPBF{}, &pbf.IncomingPBFDetail{},
 		&nonpbf.IncomingNonPBF{}, &nonpbf.IncomingNonPBFDetail{},
+		&prescription.PrescriptionSale{},
+		&prescription.PrescriptionItem{},
 	)
 
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 	"go-gin-auth/internal/outgoingProducts"
 	"go-gin-auth/internal/patient"
 	"go-gin-auth/internal/pbf"
+	"go-gin-auth/internal/prescription"
 	"go-gin-auth/internal/product"
 	"go-gin-auth/internal/shift"
 	"go-gin-auth/internal/stock_correction"
@@ -202,6 +203,18 @@ func SetupRouter() *gin.Engine {
 		nonpbfRouter.GET("/:id", nonpbfController.GetByID)
 		nonpbfRouter.PUT("/:id", nonpbfController.Update)
 		nonpbfRouter.DELETE("/:id", nonpbfController.Delete)
+
+		servicePrescriptions := prescription.NewPrescriptionSaleService(config.DB)
+		handlerPrescriptions := prescription.NewPrescriptionSaleHandler(servicePrescriptions)
+
+		prescriptions := api.Group("/sales/prescriptions")
+		{
+			prescriptions.GET("", handlerPrescriptions.GetAll)
+			prescriptions.GET("/:id", handlerPrescriptions.GetByID)
+			prescriptions.POST("", handlerPrescriptions.Create)
+			prescriptions.PUT("/:id", handlerPrescriptions.Update)
+			prescriptions.DELETE("/:id", handlerPrescriptions.Delete)
+		}
 
 	}
 	return r
