@@ -15,7 +15,9 @@ import (
 	"go-gin-auth/internal/pbf"
 	"go-gin-auth/internal/prescription"
 	"go-gin-auth/internal/product"
+	"go-gin-auth/internal/sales"
 	"go-gin-auth/internal/shift"
+	"go-gin-auth/internal/stock"
 	"go-gin-auth/internal/stock_correction"
 	storagelocation "go-gin-auth/internal/storage_location"
 	"go-gin-auth/internal/supplier"
@@ -216,6 +218,19 @@ func SetupRouter() *gin.Engine {
 			prescriptions.DELETE("/:id", handlerPrescriptions.Delete)
 		}
 
+		salesRepo := sales.NewSalesRegularRepository(config.DB)
+		stockRepo := stock.NewRepository()
+		salesService := sales.NewSalesRegularService(config.DB, salesRepo, stockRepo)
+		salesHandler := sales.NewSalesRegularHandler(salesService)
+
+		salesGroup := api.Group("/sales/regular")
+		{
+			salesGroup.GET("", salesHandler.GetAll)
+			salesGroup.GET("/:id", salesHandler.GetByID)
+			salesGroup.POST("", salesHandler.Create)
+			salesGroup.PUT("/:id", salesHandler.Update)
+			salesGroup.DELETE("/:id", salesHandler.Delete)
+		}
 	}
 	return r
 }
