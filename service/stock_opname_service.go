@@ -512,10 +512,8 @@ func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string)
 			if existingStock == nil {
 				// Insert baru
 				newStock := &stock.Stock{
-					ProductID:      detail.ProductID,
-					Quantity:       detail.ActualStock,
-					LastOpnameDate: time.Now(),
-					UpdatedAt:      time.Now(),
+					ProductID: detail.ProductID,
+					Quantity:  detail.ActualStock,
 				}
 				if err := stockRepo.CreateStock(tx, newStock); err != nil {
 					tx.Rollback()
@@ -524,9 +522,6 @@ func (s *stockOpnameService) CompleteOpname(opnameID string, completedBy string)
 			} else {
 				// Update existing
 				existingStock.Quantity = detail.ActualStock
-				existingStock.LastOpnameDate = time.Now()
-				existingStock.UpdatedAt = time.Now()
-
 				if err := stockRepo.UpdateStock(tx, existingStock); err != nil {
 					tx.Rollback()
 					return nil, err
