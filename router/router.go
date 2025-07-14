@@ -3,6 +3,7 @@ package router
 import (
 	"go-gin-auth/config"
 	"go-gin-auth/controller"
+	"go-gin-auth/internal/analytics"
 	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
 	"go-gin-auth/internal/dashboard"
@@ -242,6 +243,12 @@ func SetupRouter() *gin.Engine {
 		dashboardHandler := dashboard.NewDashboardHandler(dashboardService)
 		dashboard := api.Group("/dashboard")
 		dashboardHandler.DashboardRoutes(dashboard)
+
+		// Initialize service and handler
+		serviceAnalytics := analytics.NewSalesAnalyticsService(config.DB)
+		handlerAnalytics := analytics.NewSalesAnalyticsHandler(serviceAnalytics)
+		analytics := api.Group("/sales/analytics")
+		handlerAnalytics.SetupAnalyticsRoutes(analytics)
 
 	}
 	return r
