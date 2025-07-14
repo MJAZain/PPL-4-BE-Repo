@@ -9,6 +9,8 @@ import (
 	"go-gin-auth/internal/dashboard"
 	"go-gin-auth/internal/doctor"
 	"go-gin-auth/internal/drug_category"
+	"go-gin-auth/internal/expense"
+	"go-gin-auth/internal/expense_type"
 	"go-gin-auth/internal/incomingProducts"
 	"go-gin-auth/internal/location"
 	"go-gin-auth/internal/nonpbf"
@@ -249,6 +251,9 @@ func SetupRouter() *gin.Engine {
 		handlerAnalytics := analytics.NewSalesAnalyticsHandler(serviceAnalytics)
 		analytics := api.Group("/sales/analytics")
 		handlerAnalytics.SetupAnalyticsRoutes(analytics)
+
+		expense_type.ExpenseTypeRouter(api)
+		expense.ExpenseRouter(api)
 
 	}
 	return r
