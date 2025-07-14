@@ -5,6 +5,7 @@ import (
 	"go-gin-auth/controller"
 	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
+	"go-gin-auth/internal/dashboard"
 	"go-gin-auth/internal/doctor"
 	"go-gin-auth/internal/drug_category"
 	"go-gin-auth/internal/incomingProducts"
@@ -231,6 +232,17 @@ func SetupRouter() *gin.Engine {
 			salesGroup.PUT("/:id", salesHandler.Update)
 			salesGroup.DELETE("/:id", salesHandler.Delete)
 		}
+
+		stockService := stock.NewStockService(config.DB)
+		stockHandler := stock.NewStockHandler(stockService)
+		stock := api.Group("/stocks")
+		stockHandler.RegisterRoutes(stock)
+
+		dashboardService := dashboard.NewDashboardService(config.DB)
+		dashboardHandler := dashboard.NewDashboardHandler(dashboardService)
+		dashboard := api.Group("/dashboard")
+		dashboardHandler.DashboardRoutes(dashboard)
+
 	}
 	return r
 }

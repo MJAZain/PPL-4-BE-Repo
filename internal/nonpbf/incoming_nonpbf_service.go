@@ -311,8 +311,10 @@ func (s *IncomingNonPBFService) updateStock(tx *gorm.DB, detail CreateIncomingDe
 			// **BUAT STOCK BARU JIKA BELUM ADA**
 			if operation == "ADD" {
 				newStock := stock.Stock{
-					ProductID: *detail.ProductID,
-					Quantity:  detail.IncomingQuantity,
+					ProductID:    *detail.ProductID,
+					Quantity:     detail.IncomingQuantity,
+					ExpiryDate:   detail.ExpiryDate,
+					MinimumStock: 10, // Atur sesuai kebutuhan
 				}
 				return tx.Create(&newStock).Error
 			}
@@ -334,7 +336,11 @@ func (s *IncomingNonPBFService) updateStock(tx *gorm.DB, detail CreateIncomingDe
 		}
 	}
 
-	return tx.Model(&stockdata).Update("Quantity", newQuantity).Error
+	// ✅ Update quantity dan expired-nya
+	return tx.Model(&stockdata).Updates(map[string]interface{}{
+		"quantity":    newQuantity,
+		"expiry_date": detail.ExpiryDate,
+	}).Error
 }
 func (s *IncomingNonPBFService) generateTransactionCode() string {
 	now := time.Now()

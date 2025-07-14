@@ -424,8 +424,10 @@ func updateStock(tx *gorm.DB, detail IncomingPBFDetail, operation string) error 
 			// **BUAT STOCK BARU JIKA BELUM ADA**
 			if operation == "ADD" {
 				newStock := stock.Stock{
-					ProductID: detail.ProductID,
-					Quantity:  detail.Quantity,
+					ProductID:    detail.ProductID,
+					Quantity:     detail.Quantity,
+					ExpiryDate:   detail.ExpiryDate,
+					MinimumStock: 10, // Atur sesuai kebutuhan
 				}
 				return tx.Create(&newStock).Error
 			}
@@ -447,5 +449,8 @@ func updateStock(tx *gorm.DB, detail IncomingPBFDetail, operation string) error 
 		}
 	}
 
-	return tx.Model(&stockdata).Update("Quantity", newQuantity).Error
+	return tx.Model(&stockdata).Updates(map[string]interface{}{
+		"Quantity":   newQuantity,
+		"ExpiryDate": detail.ExpiryDate,
+	}).Error
 }
