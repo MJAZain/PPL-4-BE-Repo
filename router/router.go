@@ -3,6 +3,7 @@ package router
 import (
 	"go-gin-auth/config"
 	"go-gin-auth/controller"
+	"go-gin-auth/internal/analysis"
 	"go-gin-auth/internal/analytics"
 	"go-gin-auth/internal/brand"
 	"go-gin-auth/internal/category"
@@ -254,6 +255,7 @@ func SetupRouter() *gin.Engine {
 
 		expense_type.ExpenseTypeRouter(api)
 		expense.ExpenseRouter(api)
+		analysis.AnalysisRouter(api)
 
 	}
 	return r
