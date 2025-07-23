@@ -147,7 +147,7 @@ func (r *repository) GetTopSellingProducts(start, end time.Time, limit int) ([]T
             SUM(revenue) as total_revenue
         FROM (
             SELECT
-                p.product_id,
+                s.product_id, 
                 pi.item_name as product_name,
                 pi.item_code as product_code,
                 pi.quantity,
@@ -155,15 +155,14 @@ func (r *repository) GetTopSellingProducts(start, end time.Time, limit int) ([]T
             FROM prescription_items pi
             JOIN prescription_sales ps ON pi.prescription_sale_id = ps.id
             JOIN stocks s ON pi.stock_id = s.id
-            JOIN products p ON s.product_id = p.id
             WHERE ps.transaction_date BETWEEN ? AND ? AND pi.deleted_at IS NULL
             UNION ALL
             SELECT
-                product_id,
-                product_name,
-                product_code,
-                qty as quantity,
-                sub_total as revenue
+                sri.product_id, 
+                sri.product_name,    
+                sri.product_code, 
+                sri.qty as quantity,
+                sri.sub_total as revenue  
             FROM sales_regular_items sri
             JOIN sales_regulars sr ON sri.sales_regular_id = sr.id
             WHERE sr.transaction_date BETWEEN ? AND ? AND sri.deleted_at IS NULL
