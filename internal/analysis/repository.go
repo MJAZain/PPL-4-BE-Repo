@@ -138,7 +138,6 @@ func (r *repository) GetExpenseTimeline(start, end time.Time, interval string) (
 func (r *repository) GetTopSellingProducts(start, end time.Time, limit int) ([]TopProduct, error) {
 	var results []TopProduct
 
-	// Query telah diperbaiki untuk mengatasi ambiguitas dan ketidakkonsistenan kolom
 	query := r.db.Raw(`
         SELECT
             product_id,
